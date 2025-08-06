@@ -114,3 +114,20 @@ export const useInvalidateQueries = () => {
     invalidateAll: () => queryClient.invalidateQueries(),
   };
 };
+
+// Main API hook that provides access to all hooks
+export const useApi = () => ({
+  places: {
+    getAll: usePlaces,
+    getById: usePlace,
+    getMyPlace: useMyPlace,
+  },
+  tradeAreas: {
+    getByPlaceId: useTradeAreas,
+    getById: useTradeArea,
+  },
+  zipcodes: {
+    getAll: useCustomerZipcodes,
+    getTop: useTopCustomerZipcodes,
+  },
+});

@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   Container,
   Typography,
@@ -7,15 +8,29 @@ import {
   CardContent,
   Stack,
   Chip,
+  ThemeProvider,
+  CssBaseline,
 } from '@mui/material';
-import { useAppStore } from './store/appStore';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { useApi } from './hooks/useApi';
+import { theme } from './theme/theme';
 
-function App() {
-  const { filters, ui, setLoading, toggleLeftSidebar } = useAppStore();
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes
+    },
+  },
+});
 
-  const handleTestLoading = () => {
-    setLoading(true);
-    setTimeout(() => setLoading(false), 2000);
+function AppContent() {
+  const { data: places = [], isLoading, error } = useApi().places.getAll();
+
+  const handleTestApi = () => {
+    console.log('Places:', places);
   };
 
   return (
@@ -46,92 +61,63 @@ function App() {
         <Card>
           <CardContent>
             <Typography variant="h3" gutterBottom>
-              Mevcut Sistem Durumu
+              Backend Status
             </Typography>
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
-              <Chip
-                label="✅ React 18 + TypeScript"
-                color="primary"
-                variant="outlined"
-              />
-              <Chip
-                label="✅ Material-UI Teması"
-                color="primary"
-                variant="outlined"
-              />
-              <Chip
-                label="✅ Zustand Store"
-                color="primary"
-                variant="outlined"
-              />
-              <Chip label="✅ React Query" color="primary" variant="outlined" />
-              <Chip label="✅ Inter Font" color="primary" variant="outlined" />
-            </Box>
+            
+            {isLoading && (
+              <Chip label="Veriler yükleniyor..." color="info" />
+            )}
+            
+            {error && (
+              <Chip label={`Hata: ${error.message}`} color="error" />
+            )}
+            
+            {!isLoading && !error && (
+              <Stack spacing={2}>
+                <Chip 
+                  label={`✅ Supabase Bağlantısı Başarılı`} 
+                  color="success" 
+                />
+                <Chip 
+                  label={`📍 ${places.length} adet place bulundu`} 
+                  color="success" 
+                />
+                <Button 
+                  variant="contained" 
+                  onClick={handleTestApi}
+                  sx={{ mt: 2 }}
+                >
+                  Console'da Places'ları Görüntüle
+                </Button>
+              </Stack>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardContent>
             <Typography variant="h3" gutterBottom>
-              Store Test
+              Sonraki Adım
             </Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Sol sidebar açık: {ui.leftSidebarOpen ? 'Evet' : 'Hayır'}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Yükleniyor: {ui.loading ? 'Evet' : 'Hayır'}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Minimum rating: {filters.minRating}
-            </Typography>
-
-            <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={toggleLeftSidebar}
-              >
-                Sidebar Aç/Kapat
-              </Button>
-              <Button
-                variant="contained"
-                color="secondary"
-                onClick={handleTestLoading}
-                disabled={ui.loading}
-              >
-                {ui.loading ? 'Yükleniyor...' : 'Loading Testi'}
-              </Button>
-            </Stack>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent>
-            <Typography variant="h3" gutterBottom>
-              Proje Yapısı
-            </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              component="pre"
-              sx={{ fontSize: '0.75rem' }}
-            >
-              {`src/
-├── api/          # API client & React Query setup
-├── components/   # Reusable UI components
-├── constants/    # App constants
-├── contexts/     # React contexts
-├── hooks/        # Custom hooks
-├── pages/        # Page components
-├── store/        # Zustand store
-├── theme/        # MUI theme
-├── types/        # TypeScript types
-└── utils/        # Utility functions`}
+            <Typography variant="body1">
+              🗺️ Frontend harita görselleştirmesi implementasyonu
             </Typography>
           </CardContent>
         </Card>
       </Stack>
     </Container>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <AppContent />
+        <ReactQueryDevtools initialIsOpen={false} />
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 

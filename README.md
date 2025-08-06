@@ -1,131 +1,69 @@
-# Place & Trade - Verinin Ötesini Görün
+# React + TypeScript + Vite
 
-A React-based geospatial data visualization platform for place analysis and trade area insights.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-# Place & Trade - Verinin Ötesini Görün
+Currently, two official plugins are available:
 
-A React-based geospatial data visualization platform for place analysis and trade area insights.
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-## ✅ Task 1.1 Completed: Project Skeleton Setup
-## ✅ Task 1.2 Completed: Backend and Deployment Integrations
+## Expanding the ESLint configuration
 
-### What's Been Implemented
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-#### Core Technologies
-- ✅ **React 18+** with TypeScript
-- ✅ **Vite** as build tool for fast development
-- ✅ **Material-UI (MUI)** for component library
-- ✅ **Zustand** for global state management
-- ✅ **TanStack Query (React Query)** for server state management
+```js
+export default tseslint.config([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
 
-#### Backend & Deployment
-- ✅ **Supabase** integration with TypeScript client
-- ✅ **Database API layers** for places, trade areas, and customer data
-- ✅ **React Query hooks** for server state management
-- ✅ **Vercel deployment** configuration
-- ✅ **Environment variables** setup for different environments
+      // Remove tseslint.configs.recommended and replace with this
+      ...tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      ...tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      ...tseslint.configs.stylisticTypeChecked,
 
-#### Development Tools
-- ✅ **ESLint** configured with TypeScript and React rules
-- ✅ **Prettier** for code formatting
-- ✅ **React Query Devtools** for debugging
-
-#### Brand & Theme
-- ✅ **Custom MUI Theme** with brand colors from `brandingGuideline.md`:
-  - Deep Blue (#0A2540) - Primary
-  - Accent Teal (#00C49F) - Secondary
-  - Neutral Gray (#425466) - Text
-  - Off-White (#F6F9FC) - Background
-- ✅ **Inter Font** integration from Google Fonts
-- ✅ **Typography hierarchy** matching brand guidelines
-
-#### Project Structure
-- ✅ **Organized folder structure**:
-  ```
-  src/
-  ├── api/          # React Query setup & API clients
-  ├── components/   # Reusable UI components
-  ├── constants/    # App constants
-  ├── contexts/     # React contexts
-  ├── hooks/        # Custom hooks
-  ├── pages/        # Page components
-  ├── store/        # Zustand store
-  ├── theme/        # MUI theme configuration
-  ├── types/        # TypeScript type definitions
-  └── utils/        # Utility functions
-  ```
-
-#### State Management
-- ✅ **Zustand store** with organized slices for:
-  - Filter state (category, radius, rating)
-  - Map state (center, zoom, selected place, overlays)
-  - UI state (sidebars, loading, errors)
-- ✅ **Devtools integration** for debugging
-
-### Getting Started
-
-```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Run linting
-npm run lint
-
-# Auto-fix linting issues
-npm run lint:fix
-
-# Format code with Prettier
-npm run format
-
-# Build for production
-npm run build
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
 
-### Current Status
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-The application is now ready for feature development. The basic setup includes:
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
 
-1. ✅ Properly configured React + TypeScript environment
-2. ✅ Material-UI theme matching brand guidelines
-3. ✅ Zustand store for state management
-4. ✅ React Query for server state management
-5. ✅ ESLint + Prettier for code quality
-6. ✅ Organized project structure
-7. ✅ Inter font integration
-8. ✅ Type definitions for core entities
-
-### Next Steps
-
-The project is ready for implementing:
-- Map component integration (Mapbox GL JS + Deck.gl)
-- Backend integration (Supabase)
-- UI components (sidebars, filters, cards)
-- API layer for data fetching
-- Map visualization features
-
-### Scripts
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run lint` - Run ESLint
-- `npm run lint:fix` - Fix ESLint issues automatically
-- `npm run format` - Format code with Prettier
-- `npm run preview` - Preview production build
-
-### Dependencies
-
-**Production:**
-- React 19.1.0
-- TypeScript ~5.8.3
-- Material-UI 7.3.1
-- Zustand 5.0.7
-- TanStack Query 5.84.1
-
-**Development:**
-- Vite 7.0.4
-- ESLint 9.30.1
-- Prettier 3.6.2
-- React Query Devtools 5.84.1
+export default tseslint.config([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+```
