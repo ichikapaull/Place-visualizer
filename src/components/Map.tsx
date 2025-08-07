@@ -276,9 +276,9 @@ const Map: React.FC<MapProps> = ({
           id: zipcode.id,
           zipcode: zipcode.zipcode,
           customer_count: zipcode.customer_count,
-          place_id: zipcode.place_id
+          quintile: zipcode.quintile
         },
-        geometry: zipcode.locations // Using JSONB locations field
+        geometry: zipcode.polygon // Using polygon field from customer_zipcodes
       }))
     };
     
