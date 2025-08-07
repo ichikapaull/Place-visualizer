@@ -77,14 +77,14 @@ export const placesApi = {
     }
 
     // Transform competitors data to Place format
-    const competitors: Place[] = data?.map((item: any) => ({
-      id: item.pid,
-      name: item.name,
+    const competitors: Place[] = data?.map((item: Record<string, unknown>) => ({
+      id: String(item.pid),
+      name: String(item.name),
       category: 'Competitor',
       latitude: Number(item.latitude),
       longitude: Number(item.longitude),
-      address: item.street_address, // Using street_address from competitors table
-      sub_category: item.sub_category,
+      address: String(item.street_address), // Using street_address from competitors table
+      sub_category: String(item.sub_category),
       rating: 4.0,
       total_rating: 100
     })) || [];
@@ -103,7 +103,7 @@ export const placesApi = {
     }
 
     // Get unique industries
-    const industries = [...new Set(data?.map((item: any) => item.sub_category).filter(Boolean))] || [];
+    const industries = [...new Set(data?.map((item: Record<string, unknown>) => item.sub_category).filter(Boolean))] as string[];
     return industries.sort();
   },
 
@@ -177,32 +177,68 @@ export const placesApi = {
 // Trade Areas API
 export const tradeAreasApi = {
   async getTradeAreas(placeId: string): Promise<TradeArea[]> {
+    console.log('🔍 API: Fetching trade areas for placeId:', placeId);
+    
     const { data, error } = await supabase
       .from('trade_areas')
-      .select('*')
-      .eq('place_id', placeId);
+      .select('id, pid, trade_area, polygon, created_at')
+      .eq('pid', placeId)
+      .order('trade_area', { ascending: true });
 
     if (error) {
+      console.error('❌ API: Failed to fetch trade areas:', error);
       throw new Error(`Failed to fetch trade areas: ${error.message}`);
     }
 
-    return data || [];
+    console.log('✅ API: Raw trade areas data:', data);
+
+    // Transform the data to match our interface
+    const transformedData = (data || []).map(item => ({
+      id: item.id,
+      place_id: item.pid,
+      percentage: item.trade_area as 30 | 50 | 70,
+      geometry: item.polygon,
+      customer_count: 0, // Default since not in DB
+      revenue: 0, // Default since not in DB
+      created_at: item.created_at
+    }));
+
+    console.log('📊 API: Transformed trade areas:', transformedData);
+    return transformedData;
   },
 
   async getTradeArea(placeId: string, percentage: 30 | 50 | 70): Promise<TradeArea | null> {
+    console.log(`🔍 API: Fetching ${percentage}% trade area for placeId:`, placeId);
+    
     const { data, error } = await supabase
       .from('trade_areas')
-      .select('*')
-      .eq('place_id', placeId)
-      .eq('percentage', percentage)
+      .select('id, pid, trade_area, polygon, created_at')
+      .eq('pid', placeId)
+      .eq('trade_area', percentage)
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') return null;
+      if (error.code === 'PGRST116') {
+        console.log(`ℹ️ API: No ${percentage}% trade area found for place ${placeId}`);
+        return null;
+      }
       throw new Error(`Failed to fetch trade area: ${error.message}`);
     }
 
-    return data;
+    if (!data) return null;
+
+    console.log(`✅ API: Found ${percentage}% trade area for place ${placeId}`);
+
+    // Transform the data to match our interface
+    return {
+      id: data.id,
+      place_id: data.pid,
+      percentage: data.trade_area as 30 | 50 | 70,
+      geometry: data.polygon,
+      customer_count: 0,
+      revenue: 0,
+      created_at: data.created_at
+    };
   },
 };
 
