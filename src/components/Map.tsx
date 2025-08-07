@@ -54,7 +54,7 @@ const Map: React.FC<MapProps> = ({
   const { data: hasTradeAreaData } = useTradeAreaAvailability(selectedPlace?.id || null);
   
   // Home Zipcodes state and data (PRD: only one place at a time)
-  const { zipcodePlaceId, showHomeZipcodes, setZipcodePlaceId } = useAppStore();
+  const { zipcodePlaceId, showHomeZipcodes, setZipcodePlaceId, setShowHomeZipcodes } = useAppStore();
   const { data: homeZipcodeData, isLoading: zipcodesLoading } = useHomeZipcodeData(zipcodePlaceId);
   const { data: hasZipcodesData } = useHomeZipcodeAvailability(selectedPlace?.id || null);
   
@@ -358,9 +358,11 @@ const Map: React.FC<MapProps> = ({
       if (zipcodePlaceId === selectedPlace.id) {
         console.log('🗑️ Hiding zipcodes for place:', selectedPlace.id);
         setZipcodePlaceId(null);
+        setShowHomeZipcodes(false);
       } else {
         console.log('🏠 Showing zipcodes for place:', selectedPlace.id);
         setZipcodePlaceId(selectedPlace.id);
+        setShowHomeZipcodes(true);
       }
     } else {
       console.log('❌ Missing selectedPlace');
