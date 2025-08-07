@@ -256,7 +256,8 @@ export const homeZipcodesApi = {
     // If coordinates provided, prefer edge function for server-side filtering
     if (longitude !== undefined && latitude !== undefined) {
       try {
-        const response = await fetch(`${supabaseUrl}/functions/v1/get-zipcodes-by-location`, {
+        const edgeUrl = import.meta.env.VITE_ZIPCODES_EDGE_URL || `${supabaseUrl}/functions/v1/get-zipcodes-by-location`;
+        const response = await fetch(edgeUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
