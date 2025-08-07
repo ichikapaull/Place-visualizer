@@ -3,7 +3,16 @@ import { Paper, Box, Typography, Divider, Stack } from '@mui/material';
 import PlaceAnalysis from './PlaceAnalysis';
 import CustomerAnalysis from './CustomerAnalysis';
 
-const LeftSidebar: React.FC = () => {
+interface LeftSidebarProps {
+  onFiltersChange?: (filters: {
+    radius: number;
+    industry: string;
+    tradeAreas: { [key: string]: boolean };
+  }) => void;
+  onAnalysisTypeChange?: (analysisType: string) => void;
+}
+
+const LeftSidebar: React.FC<LeftSidebarProps> = ({ onFiltersChange, onAnalysisTypeChange }) => {
   return (
     <Paper 
       elevation={4}
@@ -30,10 +39,10 @@ const LeftSidebar: React.FC = () => {
         </Box>
 
         {/* 2. Place Analysis Bölümü */}
-        <PlaceAnalysis />
+        <PlaceAnalysis onFiltersChange={onFiltersChange} />
 
         {/* 4. Customer Analysis Bölümü */}
-        <CustomerAnalysis />
+        <CustomerAnalysis onAnalysisTypeChange={onAnalysisTypeChange} />
 
       </Stack>
     </Paper>
