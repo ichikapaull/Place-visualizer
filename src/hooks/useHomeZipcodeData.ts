@@ -1,16 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
+import type { Place } from '../types';
 
-export const useHomeZipcodeData = (placeId: string | null) => {
+export const useHomeZipcodeData = (place: Place | null) => {
   return useQuery({
-    queryKey: ['home-zipcodes', placeId],
+    queryKey: ['home-zipcodes', place?.id],
     queryFn: async () => {
-      if (!placeId) return [];
+      if (!place) return [];
+      const placeId = place.id;
+      const longitude = Number(place.longitude);
+      const latitude = Number(place.latitude);
       
-      console.log('🏠 Hook: Fetching home zipcodes for placeId:', placeId);
+      console.log('🏠 Hook: Fetching home zipcodes for placeId:', placeId, 'at', latitude, longitude);
       
       try {
-        const zipcodes = await api.homeZipcodes.getHomeZipcodes(placeId);
+        const zipcodes = await api.homeZipcodes.getHomeZipcodes(placeId, longitude, latitude);
         console.log('✅ Hook: Got home zipcodes for', placeId, ':', zipcodes);
         return zipcodes;
       } catch (error) {
@@ -18,7 +22,7 @@ export const useHomeZipcodeData = (placeId: string | null) => {
         throw error;
       }
     },
-    enabled: !!placeId,
+    enabled: !!place?.id,
     staleTime: 15 * 60 * 1000, // 15 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
     refetchOnWindowFocus: false,
@@ -28,11 +32,12 @@ export const useHomeZipcodeData = (placeId: string | null) => {
   });
 };
 
-export const useHomeZipcodeAvailability = (placeId: string | null) => {
+export const useHomeZipcodeAvailability = (place: Place | null) => {
   return useQuery({
-    queryKey: ['home-zipcodes-availability', placeId],
+    queryKey: ['home-zipcodes-availability', place?.id],
     queryFn: async () => {
-      if (!placeId) return false;
+      if (!place?.id) return false;
+      const placeId = place.id;
       
       console.log('🔍 Hook: Checking home zipcodes availability for placeId:', placeId);
       
@@ -45,7 +50,7 @@ export const useHomeZipcodeAvailability = (placeId: string | null) => {
         return false;
       }
     },
-    enabled: !!placeId,
+    enabled: !!place?.id,
     staleTime: 15 * 60 * 1000, // 15 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
     refetchOnWindowFocus: false,

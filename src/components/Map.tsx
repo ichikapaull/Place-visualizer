@@ -58,8 +58,14 @@ const Map: React.FC<MapProps> = ({
   
   // Home Zipcodes state and data (PRD: only one place at a time)
   const { zipcodePlaceId, showHomeZipcodes, setZipcodePlaceId, setShowHomeZipcodes, analysisType } = useAppStore();
-  const { data: homeZipcodeData, isLoading: zipcodesLoading } = useHomeZipcodeData(zipcodePlaceId);
-  const { data: hasZipcodesData } = useHomeZipcodeAvailability(selectedPlace?.id || null);
+  const zipcodeTargetPlace = React.useMemo(() => {
+    if (!zipcodePlaceId) return null;
+    if (myPlace?.id === zipcodePlaceId) return myPlace;
+    const comp = (competitors || []).find(p => p.id === zipcodePlaceId) || null;
+    return comp;
+  }, [zipcodePlaceId, myPlace, competitors]);
+  const { data: homeZipcodeData, isLoading: zipcodesLoading } = useHomeZipcodeData(zipcodeTargetPlace);
+  const { data: hasZipcodesData } = useHomeZipcodeAvailability(selectedPlace || null);
   
 
 

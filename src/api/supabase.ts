@@ -250,10 +250,29 @@ export const tradeAreasApi = {
 
 // Customer Zipcodes API (Global zipcode data - all places can access)
 export const homeZipcodesApi = {
-  async getHomeZipcodes(placeId: string): Promise<CustomerZipcode[]> {
-    console.log('🏠 API: Fetching customer zipcodes (global data) for placeId:', placeId);
+  async getHomeZipcodes(placeId: string, longitude?: number, latitude?: number): Promise<CustomerZipcode[]> {
+    console.log('🏠 API: Fetching customer zipcodes for placeId:', placeId, 'coords:', latitude, longitude);
     
-    // Fetch global zipcode data from customer_zipcodes table
+    // If coordinates provided, prefer edge function for server-side filtering
+    if (longitude !== undefined && latitude !== undefined) {
+      try {
+        const response = await fetch(`${supabaseUrl}/functions/v1/get-zipcodes-by-location`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify({ placeId, longitude, latitude }),
+        });
+        if (!response.ok) throw new Error(`Edge function error: ${response.statusText}`);
+        const data = await response.json();
+        return (data || []) as CustomerZipcode[];
+      } catch (err) {
+        console.warn('⚠️ Edge function failed, falling back to global query:', err);
+      }
+    }
+    
+    // Fallback: Fetch global zipcode data from customer_zipcodes table
     const { data, error } = await supabase
       .from('customer_zipcodes')
       .select('id, zipcode, customer_count, quintile, polygon, created_at')
