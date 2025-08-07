@@ -7,6 +7,7 @@ interface LeftSidebarProps {
   onFiltersChange?: (filters: {
     radius: number;
     industry: string;
+    showLayer: boolean;
     tradeAreas: { [key: string]: boolean };
   }) => void;
   onAnalysisTypeChange?: (analysisType: string) => void;
