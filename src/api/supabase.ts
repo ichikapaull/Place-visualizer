@@ -242,31 +242,54 @@ export const tradeAreasApi = {
   },
 };
 
-// Customer Zipcodes API
-export const customerZipcodesApi = {
-  async getCustomerZipcodes(): Promise<CustomerZipcode[]> {
+// Home Zipcodes API (Customer residence density)
+export const homeZipcodesApi = {
+  async getHomeZipcodes(placeId: string): Promise<CustomerZipcode[]> {
+    console.log('🏠 API: Fetching home zipcodes for placeId:', placeId);
+    
     const { data, error } = await supabase
-      .from('customer_zipcodes')
-      .select('*');
+      .from('home_zipcodes')
+      .select('id, place_id, zipcode, customer_count, polygon, created_at')
+      .eq('place_id', placeId)
+      .order('customer_count', { ascending: false });
 
     if (error) {
-      throw new Error(`Failed to fetch customer zipcodes: ${error.message}`);
+      console.error('❌ API: Failed to fetch home zipcodes:', error);
+      throw new Error(`Failed to fetch home zipcodes: ${error.message}`);
     }
 
-    return data || [];
+    console.log('✅ API: Raw home zipcodes data:', data);
+
+    // Transform the data to match our interface
+    const transformedData = (data || []).map(item => ({
+      id: item.id,
+      place_id: item.place_id,
+      zipcode: item.zipcode,
+      customer_count: item.customer_count,
+      polygon: item.polygon,
+      created_at: item.created_at
+    }));
+
+    console.log('📊 API: Transformed home zipcodes:', transformedData);
+    return transformedData;
   },
 
-  async getTopCustomerZipcodes(limit: number = 10): Promise<CustomerZipcode[]> {
+  async checkHomeZipcodesAvailability(placeId: string): Promise<boolean> {
+    console.log('🔍 API: Checking home zipcodes availability for placeId:', placeId);
+    
     const { data, error } = await supabase
-      .from('customer_zipcodes')
-      .select('*')
-      .order('customer_count', { ascending: false })
-      .limit(limit);
+      .from('home_zipcodes')
+      .select('id')
+      .eq('place_id', placeId)
+      .limit(1);
 
     if (error) {
-      throw new Error(`Failed to fetch top customer zipcodes: ${error.message}`);
+      console.error('❌ API: Failed to check home zipcodes availability:', error);
+      return false;
     }
 
-    return data || [];
+    const hasData = data && data.length > 0;
+    console.log('✅ API: Home zipcodes availability for', placeId, ':', hasData);
+    return hasData;
   },
 };
