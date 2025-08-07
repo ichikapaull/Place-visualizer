@@ -7,6 +7,7 @@ export const QUERY_KEYS = {
   PLACE: 'place',
   MY_PLACE: 'myPlace',
   COMPETITORS: 'competitors',
+  INDUSTRIES: 'industries',
   TRADE_AREAS: 'tradeAreas',
   TRADE_AREA: 'tradeArea',
   CUSTOMER_ZIPCODES: 'customerZipcodes',
@@ -50,12 +51,31 @@ export const useMyPlace = () => {
   });
 };
 
-export const useCompetitors = () => {
+export const useCompetitors = (filters?: {
+  category?: string;
+  industry?: string;
+  bounds?: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  };
+  minRating?: number;
+}) => {
   return useQuery({
-    queryKey: [QUERY_KEYS.COMPETITORS],
-    queryFn: () => api.places.getCompetitors(),
+    queryKey: [QUERY_KEYS.COMPETITORS, filters],
+    queryFn: () => api.places.getCompetitors(filters),
     staleTime: 15 * 60 * 1000, // 15 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
+  });
+};
+
+export const useIndustries = () => {
+  return useQuery({
+    queryKey: [QUERY_KEYS.INDUSTRIES],
+    queryFn: () => api.places.getIndustries(),
+    staleTime: 60 * 60 * 1000, // 1 hour - Industries don't change often
+    gcTime: 2 * 60 * 60 * 1000, // 2 hours
   });
 };
 
