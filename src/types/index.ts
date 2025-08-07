@@ -9,6 +9,7 @@ export interface Place {
   rating?: string | number;
   total_rating?: string | number;
   description?: string;
+  sub_category?: string; // Industry information
   created_at?: string;
 }
 
@@ -37,6 +38,7 @@ export interface CustomerZipcode {
 // Filter types
 export interface PlaceFilters {
   category?: string;
+  industry?: string; // Filter by sub_category
   bounds?: {
     north: number;
     south: number;
