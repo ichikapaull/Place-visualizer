@@ -11,11 +11,13 @@ import {
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import MapIcon from '@mui/icons-material/Map';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { theme } from './theme/theme';
 import Map from './components/Map';
 import LeftSidebar from './components/LeftSidebar/LeftSidebar';
+import RightSidebar from './components/RightSidebar/RightSidebar';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -29,9 +31,14 @@ const queryClient = new QueryClient({
 
 function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [legendOpen, setLegendOpen] = useState(true);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
+  };
+
+  const toggleLegend = () => {
+    setLegendOpen(!legendOpen);
   };
 
   return (
@@ -68,6 +75,16 @@ function AppContent() {
               Place & Trade Area Analyzer
             </Typography>
           </Box>
+
+          <IconButton
+            edge="end"
+            color="inherit"
+            aria-label="settings"
+            onClick={toggleLegend}
+            sx={{ ml: 2 }}
+          >
+            <SettingsIcon sx={{ fontWeight: 'bold', fontSize: '24px' }} />
+          </IconButton>
         </Toolbar>
       </AppBar>
 
@@ -79,6 +96,11 @@ function AppContent() {
           </Box>
         </Slide>
         <Map />
+        <Slide direction="left" in={legendOpen} mountOnEnter unmountOnExit>
+          <Box>
+            <RightSidebar />
+          </Box>
+        </Slide>
       </Box>
     </Box>
   );
