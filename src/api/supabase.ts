@@ -248,81 +248,61 @@ export const tradeAreasApi = {
   },
 };
 
-// Home Zipcodes API (Customer residence density)
+// Customer Zipcodes API (Global zipcode data - all places can access)
 export const homeZipcodesApi = {
   async getHomeZipcodes(placeId: string): Promise<CustomerZipcode[]> {
-    console.log('🏠 API: Fetching home zipcodes for placeId:', placeId);
+    console.log('🏠 API: Fetching customer zipcodes (global data) for placeId:', placeId);
     
+    // Fetch global zipcode data from customer_zipcodes table
     const { data, error } = await supabase
-      .from('home_zipcodes')
-      .select('id, place_id, zipcode, customer_count, locations, created_at')
-      .eq('place_id', placeId)
+      .from('customer_zipcodes')
+      .select('id, zipcode, customer_count, quintile, polygon, created_at')
       .order('customer_count', { ascending: false });
 
     if (error) {
-      console.error('❌ API: Failed to fetch home zipcodes:', error);
-      throw new Error(`Failed to fetch home zipcodes: ${error.message}`);
+      console.error('❌ API: Failed to fetch customer zipcodes:', error);
+      throw new Error(`Failed to fetch customer zipcodes: ${error.message}`);
     }
 
-    console.log('✅ API: Raw home zipcodes data:', data);
+    console.log('✅ API: Raw customer zipcodes data:', data);
 
     // Transform the data to match our interface
     const transformedData = (data || []).map((item: {
       id: string;
-      place_id: string;
       zipcode: string;
       customer_count: number;
-      locations: unknown; // JSONB can be string or object
+      quintile: number;
+      polygon: GeoJSON.Geometry;
       created_at: string;
-    }) => {
-      // Handle JSONB locations field
-      let locations: GeoJSON.Geometry;
-      
-      if (typeof item.locations === 'string') {
-        try {
-          locations = JSON.parse(item.locations);
-        } catch (e) {
-          console.warn(`⚠️ Failed to parse locations for zipcode ${item.zipcode}:`, e);
-          // Fallback to empty polygon
-          locations = { type: 'Polygon', coordinates: [] };
-        }
-      } else if (typeof item.locations === 'object' && item.locations !== null) {
-        locations = item.locations as GeoJSON.Geometry;
-      } else {
-        console.warn(`⚠️ Invalid locations data for zipcode ${item.zipcode}:`, item.locations);
-        locations = { type: 'Polygon', coordinates: [] };
-      }
+    }) => ({
+      id: item.id,
+      zipcode: item.zipcode,
+      customer_count: item.customer_count,
+      quintile: item.quintile,
+      polygon: item.polygon, // Already in correct GeoJSON format
+      created_at: item.created_at
+    }));
 
-      return {
-        id: item.id,
-        place_id: item.place_id,
-        zipcode: item.zipcode,
-        customer_count: item.customer_count,
-        locations: locations,
-        created_at: item.created_at
-      };
-    });
-
-    console.log('📊 API: Transformed home zipcodes:', transformedData);
+    console.log('📊 API: Transformed customer zipcodes:', transformedData);
     return transformedData;
   },
 
   async checkHomeZipcodesAvailability(placeId: string): Promise<boolean> {
-    console.log('🔍 API: Checking home zipcodes availability for placeId:', placeId);
+    console.log('🔍 API: Checking customer zipcodes availability (always true for global data) for place:', placeId);
     
+    // Since it's global data, always check if table has any data
     const { data, error } = await supabase
-      .from('home_zipcodes')
+      .from('customer_zipcodes')
       .select('id')
-      .eq('place_id', placeId)
       .limit(1);
 
     if (error) {
-      console.error('❌ API: Failed to check home zipcodes availability:', error);
+      console.error('❌ API: Failed to check customer zipcodes availability:', error);
       return false;
     }
 
     const hasData = data && data.length > 0;
-    console.log('✅ API: Home zipcodes availability for', placeId, ':', hasData);
+    console.log('✅ API: Customer zipcodes availability (global):', hasData);
     return hasData;
   },
 };
