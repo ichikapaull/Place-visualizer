@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   ThemeProvider,
   CssBaseline,
@@ -32,6 +32,16 @@ const queryClient = new QueryClient({
 function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [legendOpen, setLegendOpen] = useState(true);
+  const [analysisType, setAnalysisType] = useState('Trade Area Analysis');
+  const [filters, setFilters] = useState<{
+    radius: number;
+    industry: string;
+    tradeAreas: { '30': boolean; '50': boolean; '70': boolean };
+  }>({
+    radius: 0,
+    industry: '',
+    tradeAreas: { '30': true, '50': true, '70': false },
+  });
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -40,6 +50,30 @@ function AppContent() {
   const toggleLegend = () => {
     setLegendOpen(!legendOpen);
   };
+
+  const handleFiltersChange = (newFilters: {
+    radius: number;
+    industry: string;
+    tradeAreas: { [key: string]: boolean };
+  }) => {
+    // Ensure the tradeAreas match the expected type
+    setFilters({
+      radius: newFilters.radius,
+      industry: newFilters.industry,
+      tradeAreas: {
+        '30': newFilters.tradeAreas['30'] || false,
+        '50': newFilters.tradeAreas['50'] || false,
+        '70': newFilters.tradeAreas['70'] || false,
+      },
+    });
+  };
+
+  const handleAnalysisTypeChange = (newAnalysisType: string) => {
+    setAnalysisType(newAnalysisType);
+  };
+
+  // Determine popup button text based on analysis type
+  const isTradeAreaSelected = analysisType === 'Trade Area Analysis';
 
   return (
     <Box sx={{ display: 'flex', height: '100vh', position: 'relative' }}>
@@ -92,10 +126,13 @@ function AppContent() {
       <Box sx={{ display: 'flex', height: '100vh', pt: '64px' }}>
         <Slide direction="right" in={sidebarOpen} mountOnEnter unmountOnExit>
           <Box>
-            <LeftSidebar />
+            <LeftSidebar 
+              onFiltersChange={handleFiltersChange} 
+              onAnalysisTypeChange={handleAnalysisTypeChange}
+            />
           </Box>
         </Slide>
-        <Map />
+        <Map filters={filters} isTradeAreaSelected={isTradeAreaSelected} />
         <Slide direction="left" in={legendOpen} mountOnEnter unmountOnExit>
           <Box>
             <RightSidebar />
