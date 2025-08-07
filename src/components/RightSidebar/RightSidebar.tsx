@@ -3,8 +3,12 @@ import { Paper, Box, Typography, Divider, Stack, Button } from '@mui/material';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import DescriptionIcon from '@mui/icons-material/Description';
 import InfoIcon from '@mui/icons-material/Info';
+import HomeZipcodesLegend from './HomeZipcodesLegend';
+import { useAppStore } from '../../store/appStore';
 
 const RightSidebar: React.FC = () => {
+  const { analysisType } = useAppStore();
+  const isTradeArea = analysisType === 'Trade Area';
   return (
     <Paper 
       elevation={4}
@@ -74,36 +78,40 @@ const RightSidebar: React.FC = () => {
               }
             }}
           >
-            Trade Area Analysis
+            {isTradeArea ? 'Trade Area Analysis' : 'Home Zipcodes Analysis'}
           </Button>
         </Box>
 
-        {/* 3. Trade Area Lejantı Bölümü */}
-        <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 2 }}>
-            <DescriptionIcon sx={{ color: '#1976d2', fontSize: '20px' }} />
-            <Typography fontWeight="600" sx={{ color: '#1976d2' }}>
-              Trade Area Lejantı
-            </Typography>
+        {/* 3. Dinamik Lejant Bölümü */}
+        {isTradeArea ? (
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 2 }}>
+              <DescriptionIcon sx={{ color: '#1976d2', fontSize: '20px' }} />
+              <Typography fontWeight="600" sx={{ color: '#1976d2' }}>
+                Trade Area Lejantı
+              </Typography>
+            </Box>
+            
+            <Stack spacing={1.5}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
+                <Box sx={{ width: 20, height: 20, backgroundColor: 'gold', borderRadius: 1 }} />
+                <Typography fontWeight="500">%30 Trade Area</Typography>
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
+                <Box sx={{ width: 20, height: 20, backgroundColor: 'orange', borderRadius: 1 }} />
+                <Typography fontWeight="500">%50 Trade Area</Typography>
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
+                <Box sx={{ width: 20, height: 20, backgroundColor: 'red', borderRadius: 1 }} />
+                <Typography fontWeight="500">%70 Trade Area</Typography>
+              </Box>
+            </Stack>
           </Box>
-          
-          <Stack spacing={1.5}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
-              <Box sx={{ width: 20, height: 20, backgroundColor: 'gold', borderRadius: 1 }} />
-              <Typography fontWeight="500">%30 Trade Area</Typography>
-            </Box>
-            
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
-              <Box sx={{ width: 20, height: 20, backgroundColor: 'orange', borderRadius: 1 }} />
-              <Typography fontWeight="500">%50 Trade Area</Typography>
-            </Box>
-            
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
-              <Box sx={{ width: 20, height: 20, backgroundColor: 'red', borderRadius: 1 }} />
-              <Typography fontWeight="500">%70 Trade Area</Typography>
-            </Box>
-          </Stack>
-        </Box>
+        ) : (
+          <HomeZipcodesLegend />
+        )}
 
         <Divider />
 
