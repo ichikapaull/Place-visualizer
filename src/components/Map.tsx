@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import DeckGL from '@deck.gl/react';
 import ReactMapGL from 'react-map-gl';
-import { ScatterplotLayer, PolygonLayer, GeoJsonLayer } from '@deck.gl/layers';
+import { ScatterplotLayer, GeoJsonLayer } from '@deck.gl/layers';
 import { Box, CircularProgress, Alert } from '@mui/material';
-import { scaleSequential } from 'd3-scale';
-import { interpolateYlOrRd } from 'd3-scale-chromatic';
+// d3-scale removed for PRD quintile coloring
+import * as turf from '@turf/turf';
+import { createTradeAreaLayer } from './Map/layers/createTradeAreaLayers';
+import { createZipcodeLayer } from './Map/layers/createZipcodeLayer';
+import type { ZipcodeFeature } from './Map/layers/createZipcodeLayer';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMap } from './Map/hooks/useMap';
 import { useCompetitors, useMyPlace } from '../hooks/useApi';
@@ -54,7 +57,7 @@ const Map: React.FC<MapProps> = ({
   const { data: hasTradeAreaData } = useTradeAreaAvailability(selectedPlace?.id || null);
   
   // Home Zipcodes state and data (PRD: only one place at a time)
-  const { zipcodePlaceId, showHomeZipcodes, setZipcodePlaceId, setShowHomeZipcodes } = useAppStore();
+  const { zipcodePlaceId, showHomeZipcodes, setZipcodePlaceId, setShowHomeZipcodes, analysisType } = useAppStore();
   const { data: homeZipcodeData, isLoading: zipcodesLoading } = useHomeZipcodeData(zipcodePlaceId);
   const { data: hasZipcodesData } = useHomeZipcodeAvailability(selectedPlace?.id || null);
   
@@ -196,51 +199,10 @@ const Map: React.FC<MapProps> = ({
               return;
             }
 
-            // Apply styling based on percentage - matching the legend colors
-            let fillColor: [number, number, number, number];
-            let strokeColor: [number, number, number, number];
-            
-            switch (tradeArea.percentage) {
-              case 30:
-                fillColor = [255, 215, 0, 120]; // Gold with transparency
-                strokeColor = [255, 215, 0, 255]; // Solid gold border
-                break;
-              case 50:
-                fillColor = [255, 165, 0, 120]; // Orange with transparency
-                strokeColor = [255, 165, 0, 255]; // Solid orange border
-                break;
-              case 70:
-                fillColor = [255, 0, 0, 120]; // Red with transparency
-                strokeColor = [255, 0, 0, 255]; // Solid red border
-                break;
-              default:
-                fillColor = [128, 128, 128, 120];
-                strokeColor = [128, 128, 128, 255];
-            }
-
-            const layer = new PolygonLayer({
-              id: `trade-area-${placeId}-${tradeArea.percentage}`,
-              data: [{ coordinates: polygonCoordinates, percentage: tradeArea.percentage, placeId }],
-              getPolygon: (d: { coordinates: number[][][] }) => d.coordinates,
-              getFillColor: fillColor,
-              getLineColor: strokeColor,
-              getLineWidth: 3,
-              pickable: true,
-              stroked: true,
-              filled: true,
-              wireframe: false,
-              lineWidthMinPixels: 2,
-              lineWidthMaxPixels: 4,
-              // Add hover and click interactions
-              onHover: (info: { object?: { percentage: number; placeId: string } }) => {
-                if (info.object) {
-                  console.log(`🎯 Hovering over ${info.object.percentage}% trade area for place ${info.object.placeId}`);
-                }
-              },
-            });
+            const layer = createTradeAreaLayer(placeId, { percentage: tradeArea.percentage as 30|50|70, geometry: { type: 'Polygon', coordinates: polygonCoordinates } });
             
             console.log(`✅ Map: Added ${tradeArea.percentage}% trade area layer for place ${placeId}`);
-            layers.push(layer);
+            if (layer) layers.push(layer);
           } else if (!isPercentageSelected) {
             console.log(`⏭️ Map: Skipping ${tradeArea.percentage}% trade area (not selected in filter)`);
           } else if (!tradeArea.geometry) {
@@ -252,25 +214,99 @@ const Map: React.FC<MapProps> = ({
   }
 
   // Add Home Zipcodes choropleth layer (PRD: only one place at a time)
+  console.log('🏠 Map: Zipcode layer conditions:', {
+    showHomeZipcodes,
+    zipcodePlaceId,
+    hasZipcodeData: !!homeZipcodeData,
+    zipcodeDataLength: homeZipcodeData?.length
+  });
+  
   if (showHomeZipcodes && zipcodePlaceId && homeZipcodeData && homeZipcodeData.length > 0) {
     console.log('🏠 Map: Rendering home zipcodes for place:', zipcodePlaceId);
-    console.log('🏠 Map: Zipcode data:', homeZipcodeData);
+    console.log('🏠 Map: Raw zipcode data count:', homeZipcodeData.length);
     
-    // Calculate color scale based on customer counts
-    const customerCounts = homeZipcodeData.map(zc => zc.customer_count);
-    const minCustomers = Math.min(...customerCounts);
-    const maxCustomers = Math.max(...customerCounts);
+    // Find the selected place to get its coordinates
+    const targetPlace = myPlace?.id === zipcodePlaceId ? myPlace : 
+                       competitors?.find(p => p.id === zipcodePlaceId);
     
-    console.log('🏠 Map: Customer count range:', minCustomers, '-', maxCustomers);
+    if (!targetPlace) {
+      console.warn('🏠 Map: Target place not found for zipcode filtering, available places:', 
+        { myPlace: myPlace?.id, competitors: competitors?.map(c => c.id) });
+    } else {
     
-    // Create color scale (yellow to red based on customer density)
-    const colorScale = scaleSequential(interpolateYlOrRd)
-      .domain([minCustomers, maxCustomers]);
+    const placeLng = Number(targetPlace.longitude);
+    const placeLat = Number(targetPlace.latitude);
+    const placePoint = turf.point([placeLng, placeLat]);
     
-    // Convert to GeoJSON format for GeoJsonLayer
+    console.log('🏠 Map: Target place coordinates:', [placeLng, placeLat]);
+    
+    // Filter zipcodes by distance (increased radius for better coverage)
+    const MAX_DISTANCE_KM = 100; // Increased from 30km to 100km
+    
+    // Test first few zipcodes to see their distances
+    console.log('🏠 Map: Testing distances for first 3 zipcodes:');
+    homeZipcodeData.slice(0, 3).forEach((zipcode, idx) => {
+      try {
+        const zipcodeCentroid = turf.centroid(zipcode.polygon);
+        const distance = turf.distance(placePoint, zipcodeCentroid, { units: 'kilometers' });
+        console.log(`  Zipcode ${idx + 1} (${zipcode.zipcode}): ${distance.toFixed(2)}km`);
+      } catch (error) {
+        console.log(`  Zipcode ${idx + 1} (${zipcode.zipcode}): ERROR -`, error);
+      }
+    });
+    
+    const filteredZipcodeData = homeZipcodeData.filter(zipcode => {
+      try {
+        // Get centroid of zipcode polygon
+        const zipcodeCentroid = turf.centroid(zipcode.polygon);
+        const distance = turf.distance(placePoint, zipcodeCentroid, { units: 'kilometers' });
+        
+        return distance <= MAX_DISTANCE_KM;
+      } catch (error) {
+        console.warn('🏠 Map: Error calculating distance for zipcode:', zipcode.zipcode, error);
+        return false;
+      }
+    });
+    
+    console.log('🏠 Map: Filtered zipcode data count:', filteredZipcodeData.length, `(within ${MAX_DISTANCE_KM}km)`);
+    
+    if (filteredZipcodeData.length === 0) {
+      console.log('🏠 Map: No zipcodes found within radius, showing all zipcodes instead');
+      // Fallback: show all zipcodes if none found within radius
+      const allZipcodesGeoJson = {
+        type: 'FeatureCollection' as const,
+        features: homeZipcodeData.slice(0, 50).map(zipcode => ({ // Limit to first 50 for performance
+          type: 'Feature' as const,
+          properties: {
+            id: zipcode.id,
+            zipcode: zipcode.zipcode,
+            customer_count: zipcode.customer_count,
+            quintile: zipcode.quintile
+          },
+          geometry: zipcode.polygon
+        }))
+      };
+      
+      const fallbackLayer = new GeoJsonLayer({
+        id: `home-zipcodes-fallback-${zipcodePlaceId}`,
+        data: allZipcodesGeoJson,
+        getFillColor: [255, 200, 0, 60], // Light orange with low opacity
+        getLineColor: [255, 255, 255, 100],
+        getLineWidth: 1,
+        pickable: true,
+        stroked: true,
+        filled: true,
+        opacity: 0.5
+      });
+      
+      console.log(`✅ Map: Added fallback zipcodes layer (${homeZipcodeData.slice(0, 50).length} zipcodes)`);
+      layers.push(fallbackLayer);
+    } else {
+    
+    // Convert filtered data to GeoJSON format for GeoJsonLayer
     const zipcodesGeoJson = {
       type: 'FeatureCollection' as const,
-      features: homeZipcodeData.map(zipcode => ({
+      features: filteredZipcodeData.map(zipcode => ({
         type: 'Feature' as const,
         properties: {
           id: zipcode.id,
@@ -282,39 +318,13 @@ const Map: React.FC<MapProps> = ({
       }))
     };
     
-    const zipcodesLayer = new GeoJsonLayer({
-      id: `home-zipcodes-${zipcodePlaceId}`,
-      data: zipcodesGeoJson,
-      getFillColor: (feature: { properties: { customer_count: number } }) => {
-        const customerCount = feature.properties.customer_count;
-        const colorStr = colorScale(customerCount);
-        // Convert d3 color string to RGBA array
-        const rgb = colorStr.match(/\d+/g);
-        return rgb ? [parseInt(rgb[0]), parseInt(rgb[1]), parseInt(rgb[2]), 160] : [255, 255, 0, 160];
-      },
-      getLineColor: [255, 255, 255, 200],
-      getLineWidth: 2,
-      lineWidthMinPixels: 1,
-      lineWidthMaxPixels: 3,
-      pickable: true,
-      stroked: true,
-      filled: true,
-      opacity: 0.7,
-      updateTriggers: {
-        getFillColor: [minCustomers, maxCustomers]
-      },
-      // Tooltip on hover
-      onHover: (info: { object?: { properties: { zipcode: string; customer_count: number } } }) => {
-        if (info.object) {
-          const props = info.object.properties;
-          console.log(`🏠 Hovering over zipcode ${props.zipcode} with ${props.customer_count} customers`);
-        }
-      },
-    });
+    const zipcodesLayer = createZipcodeLayer(zipcodePlaceId, zipcodesGeoJson.features as unknown as ZipcodeFeature[]);
     
     console.log(`✅ Map: Added home zipcodes layer for place ${zipcodePlaceId}`);
     layers.push(zipcodesLayer);
+    }
   }
+}
 
   // Show loading state
   if (competitorsLoading || myPlaceLoading || zipcodesLoading) {
@@ -398,7 +408,7 @@ const Map: React.FC<MapProps> = ({
       {selectedPlace && (
         <PlaceInfoPopup
           place={selectedPlace}
-          isTradeAreaSelected={isTradeAreaSelected}
+          isTradeAreaSelected={analysisType === 'Trade Area'}
           isTradeAreaVisible={activeTradeAreas.has(selectedPlace.id)}
           hasTradeAreaData={hasTradeAreaData ?? true}
           isZipcodesVisible={zipcodePlaceId === selectedPlace.id}

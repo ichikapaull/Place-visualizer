@@ -129,60 +129,60 @@ const PlaceInfoPopup: React.FC<PlaceInfoPopupProps> = ({
           </Typography>
         </Box>
 
-        {/* Trade Area Button */}
+        {/* Trade Area Button - Visible only when analysisType is Trade Area */}
         {isTradeAreaSelected && (
-          <>
-            <Button
-              variant="contained"
-              fullWidth
-              disabled={!hasTradeAreaData}
-              startIcon={isTradeAreaVisible ? <VisibilityOffIcon /> : <VisibilityIcon />}
-              onClick={onShowAction}
-              sx={{
-                backgroundColor: isTradeAreaVisible ? '#d32f2f' : '#1976d2',
-                color: 'white',
-                textTransform: 'none',
-                fontWeight: 'medium',
-                py: 1,
+        <>
+          <Button
+            variant="contained"
+            fullWidth
+            disabled={!hasTradeAreaData}
+            startIcon={isTradeAreaVisible ? <VisibilityOffIcon /> : <VisibilityIcon />}
+            onClick={onShowAction}
+            sx={{
+              backgroundColor: isTradeAreaVisible ? '#d32f2f' : '#1976d2',
+              color: 'white',
+              textTransform: 'none',
+              fontWeight: 'medium',
+              py: 1,
+              mb: 1,
+              '&:hover': {
+                backgroundColor: isTradeAreaVisible ? '#c62828' : '#1565c0'
+              },
+              '&:disabled': {
+                backgroundColor: '#e0e0e0',
+                color: '#9e9e9e'
+              }
+            }}
+          >
+            {hasTradeAreaData ? 
+              (isTradeAreaVisible ? 'Hide Trade Area' : 'Show Trade Area') : 
+              'Trade Area Unavailable'
+            }
+          </Button>
+          
+          {/* Trade Area No Data Message */}
+          {!hasTradeAreaData && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ 
+                mt: 1, 
                 mb: 1,
-                '&:hover': {
-                  backgroundColor: isTradeAreaVisible ? '#c62828' : '#1565c0'
-                },
-                '&:disabled': {
-                  backgroundColor: '#e0e0e0',
-                  color: '#9e9e9e'
-                }
+                fontStyle: 'italic',
+                textAlign: 'center',
+                backgroundColor: '#fff3e0',
+                border: '1px solid #ffcc02',
+                borderRadius: 1,
+                p: 1
               }}
             >
-              {hasTradeAreaData ? 
-                (isTradeAreaVisible ? 'Hide Trade Area' : 'Show Trade Area') : 
-                'Trade Area Unavailable'
-              }
-            </Button>
-            
-            {/* Trade Area No Data Message */}
-            {!hasTradeAreaData && (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ 
-                  mt: 1, 
-                  mb: 1,
-                  fontStyle: 'italic',
-                  textAlign: 'center',
-                  backgroundColor: '#fff3e0',
-                  border: '1px solid #ffcc02',
-                  borderRadius: 1,
-                  p: 1
-                }}
-              >
-                Bu place için trade area verisi mevcut değildir
-              </Typography>
-            )}
-          </>
+              Bu place için trade area verisi mevcut değildir
+            </Typography>
+          )}
+        </>
         )}
 
-        {/* Home Zipcodes Button */}
+        {/* Home Zipcodes Button - Visible only when analysisType is Home Zipcodes */}
         {!isTradeAreaSelected && onZipcodesAction && (
           <>
             <Button
@@ -207,8 +207,8 @@ const PlaceInfoPopup: React.FC<PlaceInfoPopupProps> = ({
               }}
             >
               {hasZipcodesData ? 
-                (isZipcodesVisible ? 'Hide Zip Codes' : 'Show Zip Codes') : 
-                'Zip Codes Unavailable'
+                (isZipcodesVisible ? 'Hide Home Zipcodes' : 'Show Home Zipcodes') : 
+                'Home Zipcodes Unavailable'
               }
             </Button>
             
