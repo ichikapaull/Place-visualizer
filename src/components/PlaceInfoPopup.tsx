@@ -19,9 +19,12 @@ interface PlaceInfoPopupProps {
   isTradeAreaSelected: boolean;
   isTradeAreaVisible?: boolean; // Bu place'in trade area'sı şu anda görünür mü?
   hasTradeAreaData?: boolean; // Bu place'in trade area verisi var mı?
+  isZipcodesVisible?: boolean; // Bu place'in home zipcodes'ı şu anda görünür mü?
+  hasZipcodesData?: boolean; // Bu place'in home zipcodes verisi var mı?
   position?: { x: number; y: number } | null;
   onClose: () => void;
   onShowAction: () => void;
+  onZipcodesAction?: () => void; // Home zipcodes toggle action
 }
 
 const PlaceInfoPopup: React.FC<PlaceInfoPopupProps> = ({
@@ -29,9 +32,12 @@ const PlaceInfoPopup: React.FC<PlaceInfoPopupProps> = ({
   isTradeAreaSelected,
   isTradeAreaVisible = false,
   hasTradeAreaData = true,
+  isZipcodesVisible = false,
+  hasZipcodesData = true,
   position,
   onClose,
-  onShowAction
+  onShowAction,
+  onZipcodesAction
 }) => {
   return (
     <Paper
@@ -123,54 +129,108 @@ const PlaceInfoPopup: React.FC<PlaceInfoPopupProps> = ({
           </Typography>
         </Box>
 
-        {/* Action Button */}
-        <Button
-          variant="contained"
-          fullWidth
-          disabled={isTradeAreaSelected && !hasTradeAreaData}
-          startIcon={isTradeAreaSelected && isTradeAreaVisible ? <VisibilityOffIcon /> : <VisibilityIcon />}
-          onClick={onShowAction}
-          sx={{
-            backgroundColor: isTradeAreaSelected && isTradeAreaVisible ? '#d32f2f' : '#1976d2',
-            color: 'white',
-            textTransform: 'none',
-            fontWeight: 'medium',
-            py: 1,
-            '&:hover': {
-              backgroundColor: isTradeAreaSelected && isTradeAreaVisible ? '#c62828' : '#1565c0'
-            },
-            '&:disabled': {
-              backgroundColor: '#e0e0e0',
-              color: '#9e9e9e'
-            }
-          }}
-        >
-          {isTradeAreaSelected ? 
-            (hasTradeAreaData ? 
-              (isTradeAreaVisible ? 'Hide Trade Area' : 'Show Trade Area') : 
-              'Trade Area Unavailable'
-            ) : 
-            'Show Zip Codes'
-          }
-        </Button>
-        
-        {/* No Data Message */}
-        {isTradeAreaSelected && !hasTradeAreaData && (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ 
-              mt: 1, 
-              fontStyle: 'italic',
-              textAlign: 'center',
-              backgroundColor: '#fff3e0',
-              border: '1px solid #ffcc02',
-              borderRadius: 1,
-              p: 1
-            }}
-          >
-            Bu place için trade area verisi mevcut değildir
-          </Typography>
+        {/* Trade Area Button */}
+        {isTradeAreaSelected && (
+          <>
+            <Button
+              variant="contained"
+              fullWidth
+              disabled={!hasTradeAreaData}
+              startIcon={isTradeAreaVisible ? <VisibilityOffIcon /> : <VisibilityIcon />}
+              onClick={onShowAction}
+              sx={{
+                backgroundColor: isTradeAreaVisible ? '#d32f2f' : '#1976d2',
+                color: 'white',
+                textTransform: 'none',
+                fontWeight: 'medium',
+                py: 1,
+                mb: 1,
+                '&:hover': {
+                  backgroundColor: isTradeAreaVisible ? '#c62828' : '#1565c0'
+                },
+                '&:disabled': {
+                  backgroundColor: '#e0e0e0',
+                  color: '#9e9e9e'
+                }
+              }}
+            >
+              {hasTradeAreaData ? 
+                (isTradeAreaVisible ? 'Hide Trade Area' : 'Show Trade Area') : 
+                'Trade Area Unavailable'
+              }
+            </Button>
+            
+            {/* Trade Area No Data Message */}
+            {!hasTradeAreaData && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ 
+                  mt: 1, 
+                  mb: 1,
+                  fontStyle: 'italic',
+                  textAlign: 'center',
+                  backgroundColor: '#fff3e0',
+                  border: '1px solid #ffcc02',
+                  borderRadius: 1,
+                  p: 1
+                }}
+              >
+                Bu place için trade area verisi mevcut değildir
+              </Typography>
+            )}
+          </>
+        )}
+
+        {/* Home Zipcodes Button */}
+        {!isTradeAreaSelected && onZipcodesAction && (
+          <>
+            <Button
+              variant="contained"
+              fullWidth
+              disabled={!hasZipcodesData}
+              startIcon={isZipcodesVisible ? <VisibilityOffIcon /> : <VisibilityIcon />}
+              onClick={onZipcodesAction}
+              sx={{
+                backgroundColor: isZipcodesVisible ? '#d32f2f' : '#2e7d32',
+                color: 'white',
+                textTransform: 'none',
+                fontWeight: 'medium',
+                py: 1,
+                '&:hover': {
+                  backgroundColor: isZipcodesVisible ? '#c62828' : '#1b5e20'
+                },
+                '&:disabled': {
+                  backgroundColor: '#e0e0e0',
+                  color: '#9e9e9e'
+                }
+              }}
+            >
+              {hasZipcodesData ? 
+                (isZipcodesVisible ? 'Hide Zip Codes' : 'Show Zip Codes') : 
+                'Zip Codes Unavailable'
+              }
+            </Button>
+            
+            {/* Zipcodes No Data Message */}
+            {!hasZipcodesData && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ 
+                  mt: 1, 
+                  fontStyle: 'italic',
+                  textAlign: 'center',
+                  backgroundColor: '#fff3e0',
+                  border: '1px solid #ffcc02',
+                  borderRadius: 1,
+                  p: 1
+                }}
+              >
+                Bu place için home zipcodes verisi mevcut değildir
+              </Typography>
+            )}
+          </>
         )}
       </Box>
     </Paper>
