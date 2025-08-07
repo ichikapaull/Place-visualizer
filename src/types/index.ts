@@ -65,3 +65,19 @@ export interface ApiError {
   code?: string;
   details?: Record<string, unknown>;
 }
+
+// Map types
+export interface ViewState {
+  longitude: number;
+  latitude: number;
+  zoom: number;
+  bearing?: number;
+  pitch?: number;
+}
+
+export interface MapLayer {
+  id: string;
+  type: string;
+  data: any[];
+  properties?: Record<string, any>;
+}

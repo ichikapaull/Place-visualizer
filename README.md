@@ -1,11 +1,24 @@
-# React + TypeScript + Vite
+# Place Visualizer
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A high-performance map visualization application built with React, TypeScript, Mapbox GL JS, and Deck.gl for displaying geographic data and trade areas.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 🗺️ Interactive map with Mapbox GL JS
+- 📊 High-performance data visualization with Deck.gl
+- 🎨 Modern UI with Material-UI
+- 🔄 Real-time data synchronization
+- 📱 Responsive design
+- ⚡ Optimized performance (targeting 60 FPS)
+
+## Tech Stack
+
+- **Frontend**: React 19 + TypeScript + Vite
+- **Map Engine**: Mapbox GL JS + Deck.gl
+- **UI Framework**: Material-UI (MUI)
+- **State Management**: Zustand
+- **Data Fetching**: TanStack Query
+- **Backend**: Supabase
 
 ## Expanding the ESLint configuration
 
