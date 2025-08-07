@@ -6,6 +6,7 @@ export const QUERY_KEYS = {
   PLACES: 'places',
   PLACE: 'place',
   MY_PLACE: 'myPlace',
+  COMPETITORS: 'competitors',
   TRADE_AREAS: 'tradeAreas',
   TRADE_AREA: 'tradeArea',
   CUSTOMER_ZIPCODES: 'customerZipcodes',
@@ -46,6 +47,15 @@ export const useMyPlace = () => {
     queryFn: () => api.places.getMyPlace(),
     staleTime: 30 * 60 * 1000, // 30 minutes - My place doesn't change often
     gcTime: 60 * 60 * 1000, // 1 hour
+  });
+};
+
+export const useCompetitors = () => {
+  return useQuery({
+    queryKey: [QUERY_KEYS.COMPETITORS],
+    queryFn: () => api.places.getCompetitors(),
+    staleTime: 15 * 60 * 1000, // 15 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
   });
 };
 
