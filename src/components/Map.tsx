@@ -60,12 +60,13 @@ const Map: React.FC<MapProps> = ({
   const { zipcodePlaceId, showHomeZipcodes, setZipcodePlaceId, setShowHomeZipcodes, analysisType } = useAppStore();
   const zipcodeTargetPlace = React.useMemo(() => {
     if (!zipcodePlaceId) return null;
+    if (selectedPlace && selectedPlace.id === zipcodePlaceId) return selectedPlace;
     if (myPlace?.id === zipcodePlaceId) return myPlace;
     const comp = (competitors || []).find(p => p.id === zipcodePlaceId) || null;
     return comp;
-  }, [zipcodePlaceId, myPlace, competitors]);
+  }, [zipcodePlaceId, selectedPlace, myPlace, competitors]);
   const { data: homeZipcodeData, isLoading: zipcodesLoading } = useHomeZipcodeData(zipcodeTargetPlace);
-  const { data: hasZipcodesData } = useHomeZipcodeAvailability(selectedPlace || null);
+  const { data: hasZipcodesData } = useHomeZipcodeAvailability(zipcodeTargetPlace);
   
 
 
@@ -247,7 +248,8 @@ const Map: React.FC<MapProps> = ({
     console.log('🏠 Map: Target place coordinates:', [placeLng, placeLat]);
     
     // Filter zipcodes by distance (increased radius for better coverage)
-    const MAX_DISTANCE_KM = 100; // Increased from 30km to 100km
+    // Narrow down to avoid overwhelming fill
+    const MAX_DISTANCE_KM = 50;
     
     // Test first few zipcodes to see their distances
     console.log('🏠 Map: Testing distances for first 3 zipcodes:');
@@ -261,8 +263,32 @@ const Map: React.FC<MapProps> = ({
       }
     });
     
+    // Geometry sanity check to prevent world-covering artifacts
+    const isGeometryValid = (geom: any): boolean => {
+      if (!geom || (geom.type !== 'Polygon' && geom.type !== 'MultiPolygon')) return false;
+      const arrays: number[][] = [];
+      if (geom.type === 'Polygon') {
+        geom.coordinates.forEach((ring: number[][]) => ring.forEach((p) => arrays.push(p)));
+      } else {
+        geom.coordinates.forEach((poly: number[][][]) => poly.forEach((ring) => ring.forEach((p) => arrays.push(p))));
+      }
+      // Reject if any coord out of bounds
+      for (const [lon, lat] of arrays) {
+        if (Number.isNaN(lon) || Number.isNaN(lat)) return false;
+        if (lon < -180 || lon > 180 || lat < -90 || lat > 90) return false;
+      }
+      // Rough bbox size check (zipcodes should not span > 5 degrees)
+      const lons = arrays.map(a => a[0]);
+      const lats = arrays.map(a => a[1]);
+      const lonSpan = Math.max(...lons) - Math.min(...lons);
+      const latSpan = Math.max(...lats) - Math.min(...lats);
+      if (lonSpan > 5 || latSpan > 5) return false;
+      return true;
+    };
+
     const filteredZipcodeData = homeZipcodeData.filter(zipcode => {
       try {
+        if (!isGeometryValid(zipcode.polygon)) return false;
         // Get centroid of zipcode polygon
         const zipcodeCentroid = turf.centroid(zipcode.polygon);
         const distance = turf.distance(placePoint, zipcodeCentroid, { units: 'kilometers' });
@@ -279,9 +305,10 @@ const Map: React.FC<MapProps> = ({
     if (filteredZipcodeData.length === 0) {
       console.log('🏠 Map: No zipcodes found within radius, showing all zipcodes instead');
       // Fallback: show all zipcodes if none found within radius
+      const validAll = homeZipcodeData.filter(z => isGeometryValid(z.polygon)).slice(0, 20);
       const allZipcodesGeoJson = {
         type: 'FeatureCollection' as const,
-        features: homeZipcodeData.slice(0, 50).map(zipcode => ({ // Limit to first 50 for performance
+        features: validAll.map(zipcode => ({
           type: 'Feature' as const,
           properties: {
             id: zipcode.id,
@@ -296,16 +323,16 @@ const Map: React.FC<MapProps> = ({
       const fallbackLayer = new GeoJsonLayer({
         id: `home-zipcodes-fallback-${zipcodePlaceId}`,
         data: allZipcodesGeoJson,
-        getFillColor: [255, 200, 0, 60], // Light orange with low opacity
+        getFillColor: [0, 136, 204, 40], // very low opacity safety fallback
         getLineColor: [255, 255, 255, 100],
         getLineWidth: 1,
         pickable: true,
         stroked: true,
         filled: true,
-        opacity: 0.5
+        opacity: 0.3
       });
       
-      console.log(`✅ Map: Added fallback zipcodes layer (${homeZipcodeData.slice(0, 50).length} zipcodes)`);
+      console.log(`✅ Map: Added fallback zipcodes layer (${validAll.length} zipcodes)`);
       layers.push(fallbackLayer);
     } else {
     
