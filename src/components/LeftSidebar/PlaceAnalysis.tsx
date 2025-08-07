@@ -14,13 +14,13 @@ import {
   Button,
   Stack,
   Divider,
-  keyframes
+  keyframes,
+  CircularProgress
 } from '@mui/material';
 import SettingsInputAntennaIcon from '@mui/icons-material/SettingsInputAntenna';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CloseIcon from '@mui/icons-material/Close';
-
-const industries = ['Restaurant', 'Cafe', 'Bar', 'Supermarket', 'Gym', 'Park'];
+import { useIndustries } from '../../hooks/useApi';
 
 // Yanıp sönme animasyonu
 const blink = keyframes`
@@ -29,7 +29,15 @@ const blink = keyframes`
   }
 `;
 
-const PlaceAnalysis: React.FC = () => {
+interface PlaceAnalysisProps {
+  onFiltersChange?: (filters: {
+    radius: number;
+    industry: string;
+    tradeAreas: { [key: string]: boolean };
+  }) => void;
+}
+
+const PlaceAnalysis: React.FC<PlaceAnalysisProps> = ({ onFiltersChange }) => {
   const [showLayer, setShowLayer] = useState(true);
   const [radius, setRadius] = useState<number>(0);
   const [industry, setIndustry] = useState('');
@@ -38,6 +46,15 @@ const PlaceAnalysis: React.FC = () => {
     '50': true,
     '70': false,
   });
+
+  const { data: industries, isLoading: industriesLoading } = useIndustries();
+
+  // Notify parent about filter changes
+  React.useEffect(() => {
+    if (onFiltersChange) {
+      onFiltersChange({ radius, industry, tradeAreas });
+    }
+  }, [radius, industry, tradeAreas, onFiltersChange]);
 
   const handleTradeAreaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setTradeAreas({
@@ -178,6 +195,7 @@ const PlaceAnalysis: React.FC = () => {
                 value={industry}
                 onChange={(e) => setIndustry(e.target.value)}
                 displayEmpty
+                disabled={industriesLoading}
                 sx={{
                   backgroundColor: 'white',
                   borderRadius: 2,
@@ -198,9 +216,16 @@ const PlaceAnalysis: React.FC = () => {
                 }}
               >
                 <MenuItem value="" sx={{ fontSize: '16px', color: 'text.secondary' }}>
-                  Select Industries
+                  {industriesLoading ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CircularProgress size={16} />
+                      Loading Industries...
+                    </Box>
+                  ) : (
+                    'Select Industries'
+                  )}
                 </MenuItem>
-                {industries.map((ind) => (
+                {industries?.map((ind) => (
                   <MenuItem key={ind} value={ind} sx={{ fontSize: '16px' }}>{ind}</MenuItem>
                 ))}
               </Select>
