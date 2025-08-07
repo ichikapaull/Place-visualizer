@@ -60,10 +60,17 @@ export const placesApi = {
     return data;
   },
 
-  async getCompetitors(): Promise<Place[]> {
-    const { data, error } = await supabase
+  async getCompetitors(filters?: PlaceFilters): Promise<Place[]> {
+    let query = supabase
       .from('competitors')
       .select('*');
+
+    // Apply industry filter
+    if (filters?.industry) {
+      query = query.eq('sub_category', filters.industry);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw new Error(`Failed to fetch competitors: ${error.message}`);
@@ -76,11 +83,28 @@ export const placesApi = {
       category: 'Competitor',
       latitude: Number(item.latitude),
       longitude: Number(item.longitude),
+      address: item.street_address, // Using street_address from competitors table
+      sub_category: item.sub_category,
       rating: 4.0,
       total_rating: 100
     })) || [];
 
     return competitors;
+  },
+
+  async getIndustries(): Promise<string[]> {
+    const { data, error } = await supabase
+      .from('competitors')
+      .select('sub_category')
+      .not('sub_category', 'is', null);
+
+    if (error) {
+      throw new Error(`Failed to fetch industries: ${error.message}`);
+    }
+
+    // Get unique industries
+    const industries = [...new Set(data?.map((item: any) => item.sub_category).filter(Boolean))] || [];
+    return industries.sort();
   },
 
   async getMyPlace(): Promise<Place | null> {
@@ -102,6 +126,8 @@ export const placesApi = {
       category: 'My Place',
       latitude: Number(data.latitude),
       longitude: Number(data.longitude),
+      address: data.street_address || data.address, // Try street_address first, fallback to address
+      sub_category: data.sub_category,
       rating: 5.0,
       total_rating: 200
     };
