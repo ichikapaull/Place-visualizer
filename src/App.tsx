@@ -36,10 +36,12 @@ function AppContent() {
   const [filters, setFilters] = useState<{
     radius: number;
     industry: string;
+    showLayer: boolean;
     tradeAreas: { '30': boolean; '50': boolean; '70': boolean };
   }>({
     radius: 0,
     industry: '',
+    showLayer: true,
     tradeAreas: { '30': true, '50': true, '70': false },
   });
 
@@ -54,12 +56,14 @@ function AppContent() {
   const handleFiltersChange = (newFilters: {
     radius: number;
     industry: string;
+    showLayer: boolean;
     tradeAreas: { [key: string]: boolean };
   }) => {
     // Ensure the tradeAreas match the expected type
     setFilters({
       radius: newFilters.radius,
       industry: newFilters.industry,
+      showLayer: newFilters.showLayer,
       tradeAreas: {
         '30': newFilters.tradeAreas['30'] || false,
         '50': newFilters.tradeAreas['50'] || false,
