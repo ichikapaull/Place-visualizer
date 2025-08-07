@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import DeckGL from '@deck.gl/react';
 import ReactMapGL from 'react-map-gl';
-import { ScatterplotLayer, PolygonLayer } from '@deck.gl/layers';
+import { ScatterplotLayer, PolygonLayer, GeoJsonLayer } from '@deck.gl/layers';
 import { Box, CircularProgress, Alert } from '@mui/material';
+import { scaleSequential } from 'd3-scale';
+import { interpolateYlOrRd } from 'd3-scale-chromatic';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMap } from './Map/hooks/useMap';
 import { useCompetitors, useMyPlace } from '../hooks/useApi';
 import { useTradeAreaData } from '../hooks/useTradeAreaData';
 import { useTradeAreaAvailability } from '../hooks/useTradeAreaAvailability';
+import { useHomeZipcodeData, useHomeZipcodeAvailability } from '../hooks/useHomeZipcodeData';
+import { useAppStore } from '../store/appStore';
 
 import PlaceInfoPopup from './PlaceInfoPopup';
 import type { Place } from '../types';
@@ -48,6 +52,11 @@ const Map: React.FC<MapProps> = ({
   
   // Check if selected place has trade area data
   const { data: hasTradeAreaData } = useTradeAreaAvailability(selectedPlace?.id || null);
+  
+  // Home Zipcodes state and data (PRD: only one place at a time)
+  const { zipcodePlaceId, showHomeZipcodes, setZipcodePlaceId } = useAppStore();
+  const { data: homeZipcodeData, isLoading: zipcodesLoading } = useHomeZipcodeData(zipcodePlaceId);
+  const { data: hasZipcodesData } = useHomeZipcodeAvailability(selectedPlace?.id || null);
   
 
 
@@ -242,8 +251,73 @@ const Map: React.FC<MapProps> = ({
     });
   }
 
+  // Add Home Zipcodes choropleth layer (PRD: only one place at a time)
+  if (showHomeZipcodes && zipcodePlaceId && homeZipcodeData && homeZipcodeData.length > 0) {
+    console.log('🏠 Map: Rendering home zipcodes for place:', zipcodePlaceId);
+    console.log('🏠 Map: Zipcode data:', homeZipcodeData);
+    
+    // Calculate color scale based on customer counts
+    const customerCounts = homeZipcodeData.map(zc => zc.customer_count);
+    const minCustomers = Math.min(...customerCounts);
+    const maxCustomers = Math.max(...customerCounts);
+    
+    console.log('🏠 Map: Customer count range:', minCustomers, '-', maxCustomers);
+    
+    // Create color scale (yellow to red based on customer density)
+    const colorScale = scaleSequential(interpolateYlOrRd)
+      .domain([minCustomers, maxCustomers]);
+    
+    // Convert to GeoJSON format for GeoJsonLayer
+    const zipcodesGeoJson = {
+      type: 'FeatureCollection' as const,
+      features: homeZipcodeData.map(zipcode => ({
+        type: 'Feature' as const,
+        properties: {
+          id: zipcode.id,
+          zipcode: zipcode.zipcode,
+          customer_count: zipcode.customer_count,
+          place_id: zipcode.place_id
+        },
+        geometry: zipcode.polygon
+      }))
+    };
+    
+    const zipcodesLayer = new GeoJsonLayer({
+      id: `home-zipcodes-${zipcodePlaceId}`,
+      data: zipcodesGeoJson,
+      getFillColor: (feature: { properties: { customer_count: number } }) => {
+        const customerCount = feature.properties.customer_count;
+        const colorStr = colorScale(customerCount);
+        // Convert d3 color string to RGBA array
+        const rgb = colorStr.match(/\d+/g);
+        return rgb ? [parseInt(rgb[0]), parseInt(rgb[1]), parseInt(rgb[2]), 160] : [255, 255, 0, 160];
+      },
+      getLineColor: [255, 255, 255, 200],
+      getLineWidth: 2,
+      lineWidthMinPixels: 1,
+      lineWidthMaxPixels: 3,
+      pickable: true,
+      stroked: true,
+      filled: true,
+      opacity: 0.7,
+      updateTriggers: {
+        getFillColor: [minCustomers, maxCustomers]
+      },
+      // Tooltip on hover
+      onHover: (info: { object?: { properties: { zipcode: string; customer_count: number } } }) => {
+        if (info.object) {
+          const props = info.object.properties;
+          console.log(`🏠 Hovering over zipcode ${props.zipcode} with ${props.customer_count} customers`);
+        }
+      },
+    });
+    
+    console.log(`✅ Map: Added home zipcodes layer for place ${zipcodePlaceId}`);
+    layers.push(zipcodesLayer);
+  }
+
   // Show loading state
-  if (competitorsLoading || myPlaceLoading) {
+  if (competitorsLoading || myPlaceLoading || zipcodesLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
         <CircularProgress />
@@ -272,6 +346,24 @@ const Map: React.FC<MapProps> = ({
       onToggleTradeArea(selectedPlace.id);
     } else {
       console.log('❌ Missing selectedPlace or onToggleTradeArea');
+    }
+  };
+
+  const handleZipcodesAction = () => {
+    console.log('🏠 Zipcodes action clicked for:', selectedPlace?.name);
+    console.log('📍 Selected place ID:', selectedPlace?.id);
+    
+    if (selectedPlace) {
+      // PRD: Toggle zipcodes for this place (only one at a time)
+      if (zipcodePlaceId === selectedPlace.id) {
+        console.log('🗑️ Hiding zipcodes for place:', selectedPlace.id);
+        setZipcodePlaceId(null);
+      } else {
+        console.log('🏠 Showing zipcodes for place:', selectedPlace.id);
+        setZipcodePlaceId(selectedPlace.id);
+      }
+    } else {
+      console.log('❌ Missing selectedPlace');
     }
   };
 
@@ -307,12 +399,15 @@ const Map: React.FC<MapProps> = ({
           isTradeAreaSelected={isTradeAreaSelected}
           isTradeAreaVisible={activeTradeAreas.has(selectedPlace.id)}
           hasTradeAreaData={hasTradeAreaData ?? true}
+          isZipcodesVisible={zipcodePlaceId === selectedPlace.id}
+          hasZipcodesData={hasZipcodesData ?? true}
           position={popupPosition}
           onClose={() => {
             setSelectedPlace(null);
             setPopupPosition(null);
           }}
           onShowAction={handleShowAction}
+          onZipcodesAction={handleZipcodesAction}
         />
       )}
     </Box>
