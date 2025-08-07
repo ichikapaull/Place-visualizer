@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import DeckGL from '@deck.gl/react';
 import { Map as ReactMapGL } from 'react-map-gl';
 import { ScatterplotLayer } from '@deck.gl/layers';
@@ -15,6 +15,7 @@ interface MapProps {
   filters?: {
     radius: number;
     industry: string;
+    showLayer: boolean;
     tradeAreas: { [key: string]: boolean };
   };
   isTradeAreaSelected?: boolean;
@@ -30,6 +31,36 @@ const Map: React.FC<MapProps> = ({ filters, isTradeAreaSelected = false }) => {
   const competitorFilters = filters?.industry ? { industry: filters.industry } : undefined;
   const { data: competitors, isLoading: competitorsLoading, error: competitorsError } = useCompetitors(competitorFilters);
   const { data: myPlace, isLoading: myPlaceLoading, error: myPlaceError } = useMyPlace();
+
+  // Calculate distance between two points using Haversine formula
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; // Distance in kilometers
+  };
+
+  // Filter competitors by radius if radius filter is set and myPlace exists
+  const filteredCompetitors = React.useMemo(() => {
+    if (!competitors || !myPlace || !filters?.radius || filters.radius === 0) {
+      return competitors || [];
+    }
+    
+    const myLat = Number(myPlace.latitude);
+    const myLon = Number(myPlace.longitude);
+    
+    return competitors.filter(competitor => {
+      const compLat = Number(competitor.latitude);
+      const compLon = Number(competitor.longitude);
+      const distance = calculateDistance(myLat, myLon, compLat, compLon);
+      return distance <= filters.radius;
+    });
+  }, [competitors, myPlace, filters?.radius]);
 
   // Focus on my_place when data loads
   useEffect(() => {
@@ -50,11 +81,11 @@ const Map: React.FC<MapProps> = ({ filters, isTradeAreaSelected = false }) => {
   const layers = [];
 
   // Add competitors layer (orange semi-transparent circles - smaller size)
-  if (competitors && competitors.length > 0) {
+  if (filteredCompetitors && filteredCompetitors.length > 0 && filters?.showLayer !== false) {
     layers.push(
       new ScatterplotLayer({
         id: 'competitors-layer',
-        data: competitors,
+        data: filteredCompetitors,
         getPosition: (d: Place) => [Number(d.longitude), Number(d.latitude)],
         getRadius: 80, // More visible - 80m radius
         getFillColor: [255, 165, 0, 180], // Orange with more opacity (70%)
@@ -75,7 +106,7 @@ const Map: React.FC<MapProps> = ({ filters, isTradeAreaSelected = false }) => {
   }
 
   // Add my place layer (red circle - smaller than before but larger than competitors)
-  if (myPlace) {
+  if (myPlace && filters?.showLayer !== false) {
     layers.push(
       new ScatterplotLayer({
         id: 'my-place-layer',
