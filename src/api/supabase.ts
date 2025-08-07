@@ -60,11 +60,32 @@ export const placesApi = {
     return data;
   },
 
-  async getMyPlace(): Promise<Place | null> {
-    // For demo purposes, return the first place
-    // In a real app, this would be based on user authentication
+  async getCompetitors(): Promise<Place[]> {
     const { data, error } = await supabase
-      .from('places')
+      .from('competitors')
+      .select('*');
+
+    if (error) {
+      throw new Error(`Failed to fetch competitors: ${error.message}`);
+    }
+
+    // Transform competitors data to Place format
+    const competitors: Place[] = data?.map((item: any) => ({
+      id: item.pid,
+      name: item.name,
+      category: 'Competitor',
+      latitude: Number(item.latitude),
+      longitude: Number(item.longitude),
+      rating: 4.0,
+      total_rating: 100
+    })) || [];
+
+    return competitors;
+  },
+
+  async getMyPlace(): Promise<Place | null> {
+    const { data, error } = await supabase
+      .from('my_place')
       .select('*')
       .limit(1)
       .single();
@@ -74,7 +95,16 @@ export const placesApi = {
       throw new Error(`Failed to fetch my place: ${error.message}`);
     }
 
-    return data;
+    // Transform my_place data to Place format
+    return {
+      id: data.id,
+      name: data.name || 'My Place',
+      category: 'My Place',
+      latitude: Number(data.latitude),
+      longitude: Number(data.longitude),
+      rating: 5.0,
+      total_rating: 200
+    };
   },
 
   async createPlace(place: Omit<Place, 'id' | 'created_at'>): Promise<Place> {
