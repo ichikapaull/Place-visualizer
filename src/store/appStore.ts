@@ -23,6 +23,11 @@ interface AppState {
   setShowAnalysisLayer: (show: boolean) => void;
   selectedPlace: Place | null;
   setSelectedPlace: (place: Place | null) => void;
+  // Home Zipcodes state (PRD: only one place can show zipcodes at a time)
+  zipcodePlaceId: string | null;
+  setZipcodePlaceId: (placeId: string | null) => void;
+  showHomeZipcodes: boolean;
+  setShowHomeZipcodes: (show: boolean) => void;
   clearAllFilters: () => void;
 }
 
@@ -58,6 +63,19 @@ export const useAppStore = create<AppState>((set) => ({
   setShowAnalysisLayer: (show) => set({ showAnalysisLayer: show }),
   selectedPlace: null,
   setSelectedPlace: (place) => set({ selectedPlace: place }),
+  // Home Zipcodes state (PRD: mutual exclusivity with trade areas)
+  zipcodePlaceId: null,
+  setZipcodePlaceId: (placeId) => set((state) => ({
+    zipcodePlaceId: placeId,
+    // PRD: When showing zipcodes, ensure trade areas are hidden for clarity
+    showAnalysisLayer: placeId ? false : state.showAnalysisLayer,
+  })),
+  showHomeZipcodes: false,
+  setShowHomeZipcodes: (show) => set((state) => ({
+    showHomeZipcodes: show,
+    // PRD: Mutual exclusivity - hide trade areas when showing zipcodes
+    showAnalysisLayer: show ? false : state.showAnalysisLayer,
+  })),
   clearAllFilters: () => set({
     radiusFilter: 0,
     industryFilter: [],
@@ -66,5 +84,7 @@ export const useAppStore = create<AppState>((set) => ({
       '50': true,
       '70': true,
     },
+    zipcodePlaceId: null,
+    showHomeZipcodes: false,
   }),
 }));
