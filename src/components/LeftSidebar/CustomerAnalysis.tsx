@@ -16,8 +16,19 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import BarChartIcon from '@mui/icons-material/BarChart';
 
-const CustomerAnalysis: React.FC = () => {
+interface CustomerAnalysisProps {
+  onAnalysisTypeChange?: (analysisType: string) => void;
+}
+
+const CustomerAnalysis: React.FC<CustomerAnalysisProps> = ({ onAnalysisTypeChange }) => {
   const [analysisType, setAnalysisType] = useState('Trade Area Analysis');
+
+  const handleAnalysisTypeChange = (newType: string) => {
+    setAnalysisType(newType);
+    if (onAnalysisTypeChange) {
+      onAnalysisTypeChange(newType);
+    }
+  };
 
   return (
     <Accordion defaultExpanded>
@@ -39,7 +50,7 @@ const CustomerAnalysis: React.FC = () => {
             <Select
               value={analysisType}
               label="Analysis Type"
-              onChange={(e) => setAnalysisType(e.target.value)}
+              onChange={(e) => handleAnalysisTypeChange(e.target.value)}
               renderValue={(value) => (
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <BarChartIcon sx={{ mr: 1 }} />
