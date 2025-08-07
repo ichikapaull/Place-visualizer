@@ -1,55 +1,99 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
 import DeckGL from '@deck.gl/react';
 import { Map as ReactMapGL } from 'react-map-gl';
-import { ScatterplotLayer, IconLayer } from '@deck.gl/layers';
+import { ScatterplotLayer } from '@deck.gl/layers';
 import { Box, CircularProgress, Alert } from '@mui/material';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMap } from './Map/hooks/useMap';
 import { useCompetitors, useMyPlace } from '../hooks/useApi';
+import PlaceInfoPopup from './PlaceInfoPopup';
+import type { Place } from '../types';
 
 const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
-const Map = () => {
+interface MapProps {
+  filters?: {
+    radius: number;
+    industry: string;
+    tradeAreas: { [key: string]: boolean };
+  };
+  isTradeAreaSelected?: boolean;
+}
+
+const Map: React.FC<MapProps> = ({ filters, isTradeAreaSelected = false }) => {
   const { viewState, onViewStateChange } = useMap();
-  const { data: competitors, isLoading: competitorsLoading, error: competitorsError } = useCompetitors();
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [popupPosition, setPopupPosition] = useState<{ x: number; y: number } | null>(null);
+  const [initialViewSet, setInitialViewSet] = useState(false);
+
+  // Apply industry filter to competitors
+  const competitorFilters = filters?.industry ? { industry: filters.industry } : undefined;
+  const { data: competitors, isLoading: competitorsLoading, error: competitorsError } = useCompetitors(competitorFilters);
   const { data: myPlace, isLoading: myPlaceLoading, error: myPlaceError } = useMyPlace();
+
+  // Focus on my_place when data loads
+  useEffect(() => {
+    if (myPlace && !initialViewSet) {
+      const newViewState = {
+        longitude: Number(myPlace.longitude),
+        latitude: Number(myPlace.latitude),
+        zoom: 14, // Closer zoom to see the point clearly
+        pitch: 0,
+        bearing: 0,
+      };
+      onViewStateChange({ viewState: newViewState });
+      setInitialViewSet(true);
+    }
+  }, [myPlace, initialViewSet, onViewStateChange]);
 
   // Create layers
   const layers = [];
 
-  // Add competitors layer (orange semi-transparent circles)
+  // Add competitors layer (orange semi-transparent circles - smaller size)
   if (competitors && competitors.length > 0) {
     layers.push(
       new ScatterplotLayer({
         id: 'competitors-layer',
         data: competitors,
-        getPosition: (d: any) => [d.longitude, d.latitude],
-        getRadius: 800, // 800m radius
-        getFillColor: [255, 165, 0, 128], // Orange with 50% transparency
-        getLineColor: [255, 165, 0, 200], // Orange border
-        getLineWidth: 2,
+        getPosition: (d: Place) => [Number(d.longitude), Number(d.latitude)],
+        getRadius: 80, // More visible - 80m radius
+        getFillColor: [255, 165, 0, 180], // Orange with more opacity (70%)
+        getLineColor: [255, 140, 0, 255], // Darker orange border
+        getLineWidth: 3,
         pickable: true,
         onClick: (info: any) => {
-          console.log('Clicked competitor:', info.object);
+          if (info.object) {
+            setSelectedPlace(info.object);
+            // Use screen coordinates from the click event
+            const x = info.x || 200;
+            const y = info.y || 200;
+            setPopupPosition({ x, y: y - 10 }); // Slightly above the click point
+          }
         },
       })
     );
   }
 
-  // Add my place layer (red triangle - larger than competitors)
+  // Add my place layer (red circle - smaller than before but larger than competitors)
   if (myPlace) {
     layers.push(
       new ScatterplotLayer({
         id: 'my-place-layer',
         data: [myPlace],
-        getPosition: (d: any) => [d.longitude, d.latitude],
-        getRadius: 1200, // 1200m radius - larger than competitors
-        getFillColor: [255, 0, 0, 200], // Red with 80% opacity
-        getLineColor: [139, 0, 0, 255], // Dark red border
-        getLineWidth: 3,
+        getPosition: (d: Place) => [Number(d.longitude), Number(d.latitude)],
+        getRadius: 120, // More prominent - 120m radius
+        getFillColor: [255, 0, 0, 220], // Bright red with high opacity
+        getLineColor: [180, 0, 0, 255], // Dark red border
+        getLineWidth: 4,
         pickable: true,
         onClick: (info: any) => {
-          console.log('Clicked my place:', info.object);
+          if (info.object) {
+            setSelectedPlace(info.object);
+            // Use screen coordinates from the click event
+            const x = info.x || 200;
+            const y = info.y || 200;
+            setPopupPosition({ x, y: y - 10 }); // Slightly above the click point
+          }
         },
       })
     );
@@ -75,19 +119,52 @@ const Map = () => {
     );
   }
 
+  const handleShowAction = () => {
+    console.log('Show action clicked for:', selectedPlace?.name);
+    // Here you can implement the actual functionality
+    // For trade area: show trade area polygons
+    // For zip codes: show zip code analysis
+  };
+
+  const handleMapClick = (info: any) => {
+    // Only close popup when clicking on empty area (no object)
+    if (!info.object) {
+      setSelectedPlace(null);
+      setPopupPosition(null);
+    }
+  };
+
   return (
-    <DeckGL
-      initialViewState={viewState}
-      onViewStateChange={onViewStateChange}
-      controller={true}
-      layers={layers}
-      style={{ position: 'relative', width: '100vw', height: '100vh' }}
-    >
-      <ReactMapGL
-        mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
-        mapStyle="mapbox://styles/mapbox/streets-v11"
-      />
-    </DeckGL>
+    <Box sx={{ position: 'relative', width: '100%', height: '100%' }}>
+      <DeckGL
+        initialViewState={viewState}
+        onViewStateChange={onViewStateChange}
+        controller={true}
+        layers={layers}
+        onClick={handleMapClick}
+        getTooltip={({ object }: any) => object && `${object.name}`}
+        style={{ position: 'relative', width: '100vw', height: '100vh' }}
+      >
+        <ReactMapGL
+          mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
+          mapStyle="mapbox://styles/mapbox/streets-v11"
+        />
+      </DeckGL>
+      
+      {/* Place Information Popup */}
+      {selectedPlace && (
+        <PlaceInfoPopup
+          place={selectedPlace}
+          isTradeAreaSelected={isTradeAreaSelected}
+          position={popupPosition}
+          onClose={() => {
+            setSelectedPlace(null);
+            setPopupPosition(null);
+          }}
+          onShowAction={handleShowAction}
+        />
+      )}
+    </Box>
   );
 };
 
