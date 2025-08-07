@@ -104,20 +104,26 @@ export const useTradeArea = (
   });
 };
 
-// Customer Zipcodes hooks
-export const useCustomerZipcodes = () => {
+// Home Zipcodes hooks (legacy customerZipcodes references updated)
+export const useCustomerZipcodes = (placeId: string | null) => {
   return useQuery({
-    queryKey: [QUERY_KEYS.CUSTOMER_ZIPCODES],
-    queryFn: () => api.customerZipcodes.getCustomerZipcodes(),
+    queryKey: [QUERY_KEYS.CUSTOMER_ZIPCODES, placeId],
+    queryFn: () => placeId ? api.homeZipcodes.getHomeZipcodes(placeId) : Promise.resolve([]),
+    enabled: !!placeId,
     staleTime: 30 * 60 * 1000, // 30 minutes - Customer data changes less frequently
     gcTime: 60 * 60 * 1000, // 1 hour
   });
 };
 
-export const useTopCustomerZipcodes = (limit: number = 10) => {
+export const useTopCustomerZipcodes = (placeId: string | null, limit: number = 10) => {
   return useQuery({
-    queryKey: [QUERY_KEYS.TOP_CUSTOMER_ZIPCODES, limit],
-    queryFn: () => api.customerZipcodes.getTopCustomerZipcodes(limit),
+    queryKey: [QUERY_KEYS.TOP_CUSTOMER_ZIPCODES, placeId, limit],
+    queryFn: async () => {
+      if (!placeId) return [];
+      const zipcodes = await api.homeZipcodes.getHomeZipcodes(placeId);
+      return zipcodes.slice(0, limit); // Take top N by customer_count (already ordered)
+    },
+    enabled: !!placeId,
     staleTime: 30 * 60 * 1000, // 30 minutes
   });
 };

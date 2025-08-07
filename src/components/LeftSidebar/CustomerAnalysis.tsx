@@ -32,7 +32,7 @@ const CustomerAnalysis: React.FC<CustomerAnalysisProps> = ({ onAnalysisTypeChang
 
   const handleAnalysisTypeChange = (newType: string) => {
     const typedNewType = newType as 'Trade Area' | 'Home Zipcodes';
-    setLocalAnalysisType(newType);
+    setLocalAnalysisType(typedNewType);
     setAnalysisType(typedNewType);
     if (onAnalysisTypeChange) {
       onAnalysisTypeChange(newType);

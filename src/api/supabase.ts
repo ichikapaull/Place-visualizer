@@ -193,7 +193,13 @@ export const tradeAreasApi = {
     console.log('✅ API: Raw trade areas data:', data);
 
     // Transform the data to match our interface
-    const transformedData = (data || []).map(item => ({
+    const transformedData = (data || []).map((item: {
+      id: string;
+      pid: string;
+      trade_area: number;
+      polygon: GeoJSON.Geometry;
+      created_at: string;
+    }) => ({
       id: item.id,
       place_id: item.pid,
       percentage: item.trade_area as 30 | 50 | 70,
@@ -249,7 +255,7 @@ export const homeZipcodesApi = {
     
     const { data, error } = await supabase
       .from('home_zipcodes')
-      .select('id, place_id, zipcode, customer_count, polygon, created_at')
+      .select('id, place_id, zipcode, customer_count, locations, created_at')
       .eq('place_id', placeId)
       .order('customer_count', { ascending: false });
 
@@ -261,14 +267,41 @@ export const homeZipcodesApi = {
     console.log('✅ API: Raw home zipcodes data:', data);
 
     // Transform the data to match our interface
-    const transformedData = (data || []).map(item => ({
-      id: item.id,
-      place_id: item.place_id,
-      zipcode: item.zipcode,
-      customer_count: item.customer_count,
-      polygon: item.polygon,
-      created_at: item.created_at
-    }));
+    const transformedData = (data || []).map((item: {
+      id: string;
+      place_id: string;
+      zipcode: string;
+      customer_count: number;
+      locations: unknown; // JSONB can be string or object
+      created_at: string;
+    }) => {
+      // Handle JSONB locations field
+      let locations: GeoJSON.Geometry;
+      
+      if (typeof item.locations === 'string') {
+        try {
+          locations = JSON.parse(item.locations);
+        } catch (e) {
+          console.warn(`⚠️ Failed to parse locations for zipcode ${item.zipcode}:`, e);
+          // Fallback to empty polygon
+          locations = { type: 'Polygon', coordinates: [] };
+        }
+      } else if (typeof item.locations === 'object' && item.locations !== null) {
+        locations = item.locations as GeoJSON.Geometry;
+      } else {
+        console.warn(`⚠️ Invalid locations data for zipcode ${item.zipcode}:`, item.locations);
+        locations = { type: 'Polygon', coordinates: [] };
+      }
+
+      return {
+        id: item.id,
+        place_id: item.place_id,
+        zipcode: item.zipcode,
+        customer_count: item.customer_count,
+        locations: locations,
+        created_at: item.created_at
+      };
+    });
 
     console.log('📊 API: Transformed home zipcodes:', transformedData);
     return transformedData;

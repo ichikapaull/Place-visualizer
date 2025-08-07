@@ -28,7 +28,7 @@ export interface CustomerZipcode {
   place_id: string;
   zipcode: string;
   customer_count: number;
-  polygon: GeoJSON.Geometry;
+  locations: GeoJSON.Geometry; // JSONB field from Supabase
   created_at?: string;
 }
 
@@ -77,6 +77,6 @@ export interface ViewState {
 export interface MapLayer {
   id: string;
   type: string;
-  data: any[];
-  properties?: Record<string, any>;
+  data: Place[] | TradeArea[] | CustomerZipcode[];
+  properties?: Record<string, unknown>;
 }
