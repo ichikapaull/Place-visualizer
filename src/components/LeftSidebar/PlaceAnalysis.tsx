@@ -14,7 +14,7 @@ import {
   Button,
   Stack,
   Divider,
-  keyframes,
+  
   CircularProgress
 } from '@mui/material';
 import SettingsInputAntennaIcon from '@mui/icons-material/SettingsInputAntenna';
@@ -22,12 +22,6 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import CloseIcon from '@mui/icons-material/Close';
 import { useIndustries } from '../../hooks/useApi';
 
-// Yanıp sönme animasyonu
-const blink = keyframes`
-  50% {
-    opacity: 0.5;
-  }
-`;
 
 interface PlaceAnalysisProps {
   onFiltersChange?: (filters: {
