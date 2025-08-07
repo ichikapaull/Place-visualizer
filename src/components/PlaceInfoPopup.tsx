@@ -11,11 +11,14 @@ import CloseIcon from '@mui/icons-material/Close';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import BusinessIcon from '@mui/icons-material/Business';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import type { Place } from '../types';
 
 interface PlaceInfoPopupProps {
   place: Place;
   isTradeAreaSelected: boolean;
+  isTradeAreaVisible?: boolean; // Bu place'in trade area'sı şu anda görünür mü?
+  hasTradeAreaData?: boolean; // Bu place'in trade area verisi var mı?
   position?: { x: number; y: number } | null;
   onClose: () => void;
   onShowAction: () => void;
@@ -24,6 +27,8 @@ interface PlaceInfoPopupProps {
 const PlaceInfoPopup: React.FC<PlaceInfoPopupProps> = ({
   place,
   isTradeAreaSelected,
+  isTradeAreaVisible = false,
+  hasTradeAreaData = true,
   position,
   onClose,
   onShowAction
@@ -122,21 +127,51 @@ const PlaceInfoPopup: React.FC<PlaceInfoPopupProps> = ({
         <Button
           variant="contained"
           fullWidth
-          startIcon={<VisibilityIcon />}
+          disabled={isTradeAreaSelected && !hasTradeAreaData}
+          startIcon={isTradeAreaSelected && isTradeAreaVisible ? <VisibilityOffIcon /> : <VisibilityIcon />}
           onClick={onShowAction}
           sx={{
-            backgroundColor: '#1976d2',
+            backgroundColor: isTradeAreaSelected && isTradeAreaVisible ? '#d32f2f' : '#1976d2',
             color: 'white',
             textTransform: 'none',
             fontWeight: 'medium',
             py: 1,
             '&:hover': {
-              backgroundColor: '#1565c0'
+              backgroundColor: isTradeAreaSelected && isTradeAreaVisible ? '#c62828' : '#1565c0'
+            },
+            '&:disabled': {
+              backgroundColor: '#e0e0e0',
+              color: '#9e9e9e'
             }
           }}
         >
-          {isTradeAreaSelected ? 'Show Trade Area' : 'Show Zip Codes'}
+          {isTradeAreaSelected ? 
+            (hasTradeAreaData ? 
+              (isTradeAreaVisible ? 'Hide Trade Area' : 'Show Trade Area') : 
+              'Trade Area Unavailable'
+            ) : 
+            'Show Zip Codes'
+          }
         </Button>
+        
+        {/* No Data Message */}
+        {isTradeAreaSelected && !hasTradeAreaData && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ 
+              mt: 1, 
+              fontStyle: 'italic',
+              textAlign: 'center',
+              backgroundColor: '#fff3e0',
+              border: '1px solid #ffcc02',
+              borderRadius: 1,
+              p: 1
+            }}
+          >
+            Bu place için trade area verisi mevcut değildir
+          </Typography>
+        )}
       </Box>
     </Paper>
   );

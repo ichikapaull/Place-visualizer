@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import DeckGL from '@deck.gl/react';
-import { Map as ReactMapGL } from 'react-map-gl';
+import ReactMapGL from 'react-map-gl';
 import { ScatterplotLayer, PolygonLayer } from '@deck.gl/layers';
 import { Box, CircularProgress, Alert } from '@mui/material';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMap } from './Map/hooks/useMap';
 import { useCompetitors, useMyPlace } from '../hooks/useApi';
 import { useTradeAreaData } from '../hooks/useTradeAreaData';
+import { useTradeAreaAvailability } from '../hooks/useTradeAreaAvailability';
 
 import PlaceInfoPopup from './PlaceInfoPopup';
 import type { Place } from '../types';
@@ -44,6 +45,9 @@ const Map: React.FC<MapProps> = ({
   // Fetch trade area data for active places
   const activePlaceIds = Array.from(activeTradeAreas);
   const { data: tradeAreaData } = useTradeAreaData(activePlaceIds);
+  
+  // Check if selected place has trade area data
+  const { data: hasTradeAreaData } = useTradeAreaAvailability(selectedPlace?.id || null);
   
 
 
@@ -293,6 +297,8 @@ const Map: React.FC<MapProps> = ({
         <ReactMapGL
           mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
           mapStyle="mapbox://styles/mapbox/streets-v11"
+          width="100%"
+          height="100%"
         />
       </DeckGL>
       
@@ -301,6 +307,8 @@ const Map: React.FC<MapProps> = ({
         <PlaceInfoPopup
           place={selectedPlace}
           isTradeAreaSelected={isTradeAreaSelected}
+          isTradeAreaVisible={activeTradeAreas.has(selectedPlace.id)}
+          hasTradeAreaData={hasTradeAreaData ?? true}
           position={popupPosition}
           onClose={() => {
             setSelectedPlace(null);
