@@ -25,13 +25,10 @@ export interface TradeArea {
 
 export interface CustomerZipcode {
   id: string;
+  place_id: string;
   zipcode: string;
-  geometry: GeoJSON.Geometry;
-  customer_count: string | number;
-  total_spend: string | number;
-  average_spend: string | number;
-  longitude?: string | number;
-  latitude?: string | number;
+  customer_count: number;
+  polygon: GeoJSON.Geometry;
   created_at?: string;
 }
 
