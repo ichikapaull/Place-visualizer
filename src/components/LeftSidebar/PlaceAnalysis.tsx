@@ -33,6 +33,7 @@ interface PlaceAnalysisProps {
   onFiltersChange?: (filters: {
     radius: number;
     industry: string;
+    showLayer: boolean;
     tradeAreas: { [key: string]: boolean };
   }) => void;
 }
@@ -52,9 +53,9 @@ const PlaceAnalysis: React.FC<PlaceAnalysisProps> = ({ onFiltersChange }) => {
   // Notify parent about filter changes
   React.useEffect(() => {
     if (onFiltersChange) {
-      onFiltersChange({ radius, industry, tradeAreas });
+      onFiltersChange({ radius, industry, showLayer, tradeAreas });
     }
-  }, [radius, industry, tradeAreas, onFiltersChange]);
+  }, [radius, industry, showLayer, tradeAreas, onFiltersChange]);
 
   const handleTradeAreaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setTradeAreas({
@@ -74,6 +75,7 @@ const PlaceAnalysis: React.FC<PlaceAnalysisProps> = ({ onFiltersChange }) => {
   const handleClearAllFilters = () => {
     setRadius(0);
     setIndustry('');
+    setShowLayer(true);
     handleClearAll();
   };
 
