@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Accordion,
   AccordionSummary,
@@ -15,16 +15,25 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import { useAppStore } from '../../store/appStore';
 
 interface CustomerAnalysisProps {
   onAnalysisTypeChange?: (analysisType: string) => void;
 }
 
 const CustomerAnalysis: React.FC<CustomerAnalysisProps> = ({ onAnalysisTypeChange }) => {
-  const [analysisType, setAnalysisType] = useState('Trade Area Analysis');
+  const { analysisType, setAnalysisType } = useAppStore();
+  const [localAnalysisType, setLocalAnalysisType] = useState(analysisType);
+
+  // Sync with global store
+  useEffect(() => {
+    setLocalAnalysisType(analysisType);
+  }, [analysisType]);
 
   const handleAnalysisTypeChange = (newType: string) => {
-    setAnalysisType(newType);
+    const typedNewType = newType as 'Trade Area' | 'Home Zipcodes';
+    setLocalAnalysisType(newType);
+    setAnalysisType(typedNewType);
     if (onAnalysisTypeChange) {
       onAnalysisTypeChange(newType);
     }
@@ -39,7 +48,11 @@ const CustomerAnalysis: React.FC<CustomerAnalysisProps> = ({ onAnalysisTypeChang
       >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <Typography fontWeight="bold">Customer Analysis</Typography>
-          <Chip label="Trade Area" color="primary" size="small" />
+          <Chip 
+            label={analysisType} 
+            color={analysisType === 'Trade Area' ? 'primary' : 'secondary'} 
+            size="small" 
+          />
         </Box>
       </AccordionSummary>
       <AccordionDetails>
@@ -48,7 +61,7 @@ const CustomerAnalysis: React.FC<CustomerAnalysisProps> = ({ onAnalysisTypeChang
           <FormControl fullWidth>
             <InputLabel>Analysis Type</InputLabel>
             <Select
-              value={analysisType}
+              value={localAnalysisType}
               label="Analysis Type"
               onChange={(e) => handleAnalysisTypeChange(e.target.value)}
               renderValue={(value) => (
@@ -58,14 +71,17 @@ const CustomerAnalysis: React.FC<CustomerAnalysisProps> = ({ onAnalysisTypeChang
                 </Box>
               )}
             >
-              <MenuItem value="Trade Area Analysis">Trade Area Analysis</MenuItem>
-              <MenuItem value="Home Zipcodes Analysis">Home Zipcodes Analysis</MenuItem>
+              <MenuItem value="Trade Area">Trade Area</MenuItem>
+              <MenuItem value="Home Zipcodes">Home Zipcodes</MenuItem>
             </Select>
           </FormControl>
 
           {/* Bilgi Kutusu */}
           <Alert severity="info">
-            Trade area yüzdelik kontrollerini Place Analysis bölümünden yapabilirsiniz. Bir place'in 'Show Trade Area' butonuna tıklayın.
+            {analysisType === 'Trade Area' 
+              ? 'Trade area yüzdelik kontrollerini Place Analysis bölümünden yapabilirsiniz. Bir place\'in "Show Trade Area" butonuna tıklayın.'
+              : 'Home Zipcodes analizi için bir place\'e tıklayıp "Show Zip Codes" butonunu kullanın. Aynı anda sadece bir place için görünür.'
+            }
           </Alert>
         </Stack>
       </AccordionDetails>
