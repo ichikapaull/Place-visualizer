@@ -33,16 +33,17 @@ function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [legendOpen, setLegendOpen] = useState(true);
   const [analysisType, setAnalysisType] = useState('Trade Area Analysis');
+  const [activeTradeAreas, setActiveTradeAreas] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<{
     radius: number;
     industry: string;
     showLayer: boolean;
-    tradeAreas: { '30': boolean; '50': boolean; '70': boolean };
+    tradeAreas: { [key: string]: boolean };
   }>({
     radius: 0,
     industry: '',
     showLayer: true,
-    tradeAreas: { '30': true, '50': true, '70': false },
+    tradeAreas: { '30': true, '50': true, '70': true },
   });
 
   const toggleSidebar = () => {
@@ -59,21 +60,32 @@ function AppContent() {
     showLayer: boolean;
     tradeAreas: { [key: string]: boolean };
   }) => {
-    // Ensure the tradeAreas match the expected type
     setFilters({
       radius: newFilters.radius,
       industry: newFilters.industry,
       showLayer: newFilters.showLayer,
-      tradeAreas: {
-        '30': newFilters.tradeAreas['30'] || false,
-        '50': newFilters.tradeAreas['50'] || false,
-        '70': newFilters.tradeAreas['70'] || false,
-      },
+      tradeAreas: newFilters.tradeAreas,
     });
   };
 
   const handleAnalysisTypeChange = (newAnalysisType: string) => {
     setAnalysisType(newAnalysisType);
+  };
+
+  const toggleTradeArea = (placeId: string) => {
+    console.log('🔄 toggleTradeArea called with placeId:', placeId);
+    setActiveTradeAreas(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(placeId)) {
+        console.log('🗑️ Removing placeId from activeTradeAreas:', placeId);
+        newSet.delete(placeId);
+      } else {
+        console.log('➕ Adding placeId to activeTradeAreas:', placeId);
+        newSet.add(placeId);
+      }
+      console.log('📊 New activeTradeAreas:', Array.from(newSet));
+      return newSet;
+    });
   };
 
   // Determine popup button text based on analysis type
@@ -136,7 +148,12 @@ function AppContent() {
             />
           </Box>
         </Slide>
-        <Map filters={filters} isTradeAreaSelected={isTradeAreaSelected} />
+        <Map 
+          filters={filters} 
+          isTradeAreaSelected={isTradeAreaSelected}
+          activeTradeAreas={activeTradeAreas}
+          onToggleTradeArea={toggleTradeArea}
+        />
         <Slide direction="left" in={legendOpen} mountOnEnter unmountOnExit>
           <Box>
             <RightSidebar />

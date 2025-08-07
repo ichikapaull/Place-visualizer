@@ -45,7 +45,7 @@ const PlaceAnalysis: React.FC<PlaceAnalysisProps> = ({ onFiltersChange }) => {
   const [tradeAreas, setTradeAreas] = useState({
     '30': true,
     '50': true,
-    '70': false,
+    '70': true,
   });
 
   const { data: industries, isLoading: industriesLoading } = useIndustries();
