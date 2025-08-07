@@ -25,10 +25,10 @@ export interface TradeArea {
 
 export interface CustomerZipcode {
   id: string;
-  place_id: string;
   zipcode: string;
   customer_count: number;
-  locations: GeoJSON.Geometry; // JSONB field from Supabase
+  quintile: number;
+  polygon: GeoJSON.Geometry; // Global zipcode data from customer_zipcodes table
   created_at?: string;
 }
 
