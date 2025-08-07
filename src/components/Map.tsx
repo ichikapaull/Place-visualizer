@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import DeckGL from '@deck.gl/react';
 import { Map as ReactMapGL } from 'react-map-gl';
-import { ScatterplotLayer } from '@deck.gl/layers';
+import { ScatterplotLayer, PolygonLayer } from '@deck.gl/layers';
 import { Box, CircularProgress, Alert } from '@mui/material';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMap } from './Map/hooks/useMap';
 import { useCompetitors, useMyPlace } from '../hooks/useApi';
+import { useTradeAreaData } from '../hooks/useTradeAreaData';
+
 import PlaceInfoPopup from './PlaceInfoPopup';
 import type { Place } from '../types';
 
@@ -19,9 +21,16 @@ interface MapProps {
     tradeAreas: { [key: string]: boolean };
   };
   isTradeAreaSelected?: boolean;
+  activeTradeAreas?: Set<string>;
+  onToggleTradeArea?: (placeId: string) => void;
 }
 
-const Map: React.FC<MapProps> = ({ filters, isTradeAreaSelected = false }) => {
+const Map: React.FC<MapProps> = ({ 
+  filters, 
+  isTradeAreaSelected = false,
+  activeTradeAreas = new Set(),
+  onToggleTradeArea
+}) => {
   const { viewState, onViewStateChange } = useMap();
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [popupPosition, setPopupPosition] = useState<{ x: number; y: number } | null>(null);
@@ -31,6 +40,12 @@ const Map: React.FC<MapProps> = ({ filters, isTradeAreaSelected = false }) => {
   const competitorFilters = filters?.industry ? { industry: filters.industry } : undefined;
   const { data: competitors, isLoading: competitorsLoading, error: competitorsError } = useCompetitors(competitorFilters);
   const { data: myPlace, isLoading: myPlaceLoading, error: myPlaceError } = useMyPlace();
+
+  // Fetch trade area data for active places
+  const activePlaceIds = Array.from(activeTradeAreas);
+  const { data: tradeAreaData } = useTradeAreaData(activePlaceIds);
+  
+
 
   // Calculate distance between two points using Haversine formula
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -72,7 +87,7 @@ const Map: React.FC<MapProps> = ({ filters, isTradeAreaSelected = false }) => {
         pitch: 0,
         bearing: 0,
       };
-      onViewStateChange({ viewState: newViewState });
+      onViewStateChange({ viewState: newViewState, viewId: 'map', interactionState: {} });
       setInitialViewSet(true);
     }
   }, [myPlace, initialViewSet, onViewStateChange]);
@@ -92,7 +107,7 @@ const Map: React.FC<MapProps> = ({ filters, isTradeAreaSelected = false }) => {
         getLineColor: [255, 140, 0, 255], // Darker orange border
         getLineWidth: 3,
         pickable: true,
-        onClick: (info: any) => {
+        onClick: (info: { object?: Place; x?: number; y?: number }) => {
           if (info.object) {
             setSelectedPlace(info.object);
             // Use screen coordinates from the click event
@@ -117,7 +132,7 @@ const Map: React.FC<MapProps> = ({ filters, isTradeAreaSelected = false }) => {
         getLineColor: [180, 0, 0, 255], // Dark red border
         getLineWidth: 4,
         pickable: true,
-        onClick: (info: any) => {
+        onClick: (info: { object?: Place; x?: number; y?: number }) => {
           if (info.object) {
             setSelectedPlace(info.object);
             // Use screen coordinates from the click event
@@ -128,6 +143,99 @@ const Map: React.FC<MapProps> = ({ filters, isTradeAreaSelected = false }) => {
         },
       })
     );
+  }
+
+  // Add Trade Area polygons for active places using real Supabase data
+  if (activeTradeAreas.size > 0 && isTradeAreaSelected && tradeAreaData && filters?.tradeAreas) {
+    console.log('🗺️ Map: Rendering trade areas for activeTradeAreas:', Array.from(activeTradeAreas));
+    console.log('🗺️ Map: tradeAreaData:', tradeAreaData);
+    console.log('🗺️ Map: filters.tradeAreas:', filters.tradeAreas);
+    
+    // Use real trade area data from Supabase
+    tradeAreaData.forEach(({ placeId, tradeAreas }) => {
+      console.log(`🗺️ Map: Processing place ${placeId} with ${tradeAreas?.length || 0} trade areas`);
+      if (tradeAreas && tradeAreas.length > 0) {
+        tradeAreas.forEach(tradeArea => {
+          // Only show trade areas that are selected in the sidebar filter
+          const isPercentageSelected = filters.tradeAreas[tradeArea.percentage.toString()];
+          
+          console.log(`🗺️ Map: Trade area ${tradeArea.percentage}% - selected: ${isPercentageSelected}`);
+          
+          if (isPercentageSelected && tradeArea.geometry) {
+            // Parse the geometry from Supabase (should be GeoJSON format)
+            let polygonCoordinates: number[][][];
+            try {
+              // The geometry should already be a JSON object from Supabase
+              const geometry = tradeArea.geometry;
+              
+              console.log('🗺️ Map: Processing geometry:', geometry);
+              
+              // Extract coordinates from GeoJSON Polygon
+              if (geometry && geometry.type === 'Polygon' && geometry.coordinates) {
+                polygonCoordinates = geometry.coordinates;
+                console.log(`🗺️ Map: Found polygon with ${polygonCoordinates.length} rings`);
+              } else {
+                console.error('❌ Invalid geometry format for trade area:', geometry);
+                return;
+              }
+            } catch (error) {
+              console.error('❌ Failed to parse trade area geometry:', error);
+              return;
+            }
+
+            // Apply styling based on percentage - matching the legend colors
+            let fillColor: [number, number, number, number];
+            let strokeColor: [number, number, number, number];
+            
+            switch (tradeArea.percentage) {
+              case 30:
+                fillColor = [255, 215, 0, 120]; // Gold with transparency
+                strokeColor = [255, 215, 0, 255]; // Solid gold border
+                break;
+              case 50:
+                fillColor = [255, 165, 0, 120]; // Orange with transparency
+                strokeColor = [255, 165, 0, 255]; // Solid orange border
+                break;
+              case 70:
+                fillColor = [255, 0, 0, 120]; // Red with transparency
+                strokeColor = [255, 0, 0, 255]; // Solid red border
+                break;
+              default:
+                fillColor = [128, 128, 128, 120];
+                strokeColor = [128, 128, 128, 255];
+            }
+
+            const layer = new PolygonLayer({
+              id: `trade-area-${placeId}-${tradeArea.percentage}`,
+              data: [{ coordinates: polygonCoordinates, percentage: tradeArea.percentage, placeId }],
+              getPolygon: (d: { coordinates: number[][][] }) => d.coordinates,
+              getFillColor: fillColor,
+              getLineColor: strokeColor,
+              getLineWidth: 3,
+              pickable: true,
+              stroked: true,
+              filled: true,
+              wireframe: false,
+              lineWidthMinPixels: 2,
+              lineWidthMaxPixels: 4,
+              // Add hover and click interactions
+              onHover: (info: { object?: { percentage: number; placeId: string } }) => {
+                if (info.object) {
+                  console.log(`🎯 Hovering over ${info.object.percentage}% trade area for place ${info.object.placeId}`);
+                }
+              },
+            });
+            
+            console.log(`✅ Map: Added ${tradeArea.percentage}% trade area layer for place ${placeId}`);
+            layers.push(layer);
+          } else if (!isPercentageSelected) {
+            console.log(`⏭️ Map: Skipping ${tradeArea.percentage}% trade area (not selected in filter)`);
+          } else if (!tradeArea.geometry) {
+            console.log(`⚠️ Map: No geometry found for ${tradeArea.percentage}% trade area`);
+          }
+        });
+      }
+    });
   }
 
   // Show loading state
@@ -151,13 +259,19 @@ const Map: React.FC<MapProps> = ({ filters, isTradeAreaSelected = false }) => {
   }
 
   const handleShowAction = () => {
-    console.log('Show action clicked for:', selectedPlace?.name);
-    // Here you can implement the actual functionality
-    // For trade area: show trade area polygons
-    // For zip codes: show zip code analysis
+    console.log('🔘 Show action clicked for:', selectedPlace?.name);
+    console.log('📍 Selected place ID:', selectedPlace?.id);
+    console.log('🔄 onToggleTradeArea function:', onToggleTradeArea);
+    
+    if (selectedPlace && onToggleTradeArea) {
+      console.log('✅ Calling onToggleTradeArea with ID:', selectedPlace.id);
+      onToggleTradeArea(selectedPlace.id);
+    } else {
+      console.log('❌ Missing selectedPlace or onToggleTradeArea');
+    }
   };
 
-  const handleMapClick = (info: any) => {
+  const handleMapClick = (info: { object?: Place }) => {
     // Only close popup when clicking on empty area (no object)
     if (!info.object) {
       setSelectedPlace(null);
@@ -173,7 +287,7 @@ const Map: React.FC<MapProps> = ({ filters, isTradeAreaSelected = false }) => {
         controller={true}
         layers={layers}
         onClick={handleMapClick}
-        getTooltip={({ object }: any) => object && `${object.name}`}
+        getTooltip={({ object }: { object?: Place }) => object ? `${object.name}` : null}
         style={{ position: 'relative', width: '100vw', height: '100vh' }}
       >
         <ReactMapGL
