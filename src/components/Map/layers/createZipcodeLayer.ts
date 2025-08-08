@@ -13,7 +13,7 @@ export interface ZipcodeFeature {
   geometry: GeoJSON.Geometry;
 }
 
-export const createZipcodeLayer = (placeId: string, features: ZipcodeFeature[]) => {
+export const createZipcodeLayer = (placeId: string, features: ZipcodeFeature[], enableInteraction: boolean = true) => {
   // Blue palette to avoid "whitewash" effect
   const quintileColors: [number, number, number, number][] = [
     [198, 219, 239, 140],  // light blue
@@ -39,9 +39,9 @@ export const createZipcodeLayer = (placeId: string, features: ZipcodeFeature[]) 
     getLineWidth: 1,
     lineWidthMinPixels: 1,
     lineWidthMaxPixels: 2,
-    pickable: true,
-    autoHighlight: true,
-    highlightColor: [255, 255, 0, 200],
+    pickable: enableInteraction,
+    autoHighlight: enableInteraction,
+    highlightColor: enableInteraction ? [255, 255, 0, 200] : [0, 0, 0, 0],
     stroked: true,
     filled: true,
     updateTriggers: {
