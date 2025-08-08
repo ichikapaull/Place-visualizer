@@ -65,16 +65,12 @@ export const useAppStore = create<AppState>((set) => ({
   setSelectedPlace: (place) => set({ selectedPlace: place }),
   // Home Zipcodes state (PRD: mutual exclusivity with trade areas)
   zipcodePlaceId: null,
-  setZipcodePlaceId: (placeId) => set((state) => ({
+  setZipcodePlaceId: (placeId) => set(() => ({
     zipcodePlaceId: placeId,
-    // PRD: When showing zipcodes, ensure trade areas are hidden for clarity
-    showAnalysisLayer: placeId ? false : state.showAnalysisLayer,
   })),
   showHomeZipcodes: false,
-  setShowHomeZipcodes: (show) => set((state) => ({
+  setShowHomeZipcodes: (show) => set(() => ({
     showHomeZipcodes: show,
-    // PRD: Mutual exclusivity - hide trade areas when showing zipcodes
-    showAnalysisLayer: show ? false : state.showAnalysisLayer,
   })),
   clearAllFilters: () => set({
     radiusFilter: 0,
