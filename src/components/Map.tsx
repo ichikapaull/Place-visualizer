@@ -24,7 +24,7 @@ const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 interface MapProps {
   filters?: {
     radius: number;
-    industry: string;
+    industry: string[];
     showLayer: boolean;
     tradeAreas: { [key: string]: boolean };
   };
@@ -44,8 +44,10 @@ const Map: React.FC<MapProps> = ({
   const [popupPosition, setPopupPosition] = useState<{ x: number; y: number } | null>(null);
   const [initialViewSet, setInitialViewSet] = useState(false);
 
-  // Apply industry filter to competitors
-  const competitorFilters = filters?.industry ? { industry: filters.industry } : undefined;
+  // Apply industry filter to competitors (supports multi-select)
+  const competitorFilters = (filters?.industry && filters.industry.length > 0)
+    ? { industry: filters.industry }
+    : undefined;
   const { data: competitors, isLoading: competitorsLoading, error: competitorsError } = useCompetitors(competitorFilters);
   const { data: myPlace, isLoading: myPlaceLoading, error: myPlaceError } = useMyPlace();
 
@@ -115,6 +117,20 @@ const Map: React.FC<MapProps> = ({
     }
   }, [myPlace, initialViewSet, onViewStateChange]);
 
+  // PRD: If switching to Home Zipcodes while multiple Trade Areas are visible,
+  // only keep My Place's Home Zipcodes on screen
+  useEffect(() => {
+    if (analysisType === 'Home Zipcodes' && activeTradeAreas.size > 0) {
+      if (myPlace?.id) {
+        setZipcodePlaceId(myPlace.id);
+        setShowHomeZipcodes(true);
+      } else {
+        setZipcodePlaceId(null);
+        setShowHomeZipcodes(false);
+      }
+    }
+  }, [analysisType, activeTradeAreas.size, myPlace?.id, setZipcodePlaceId, setShowHomeZipcodes]);
+
   // Create layers
   const layers = [];
 
@@ -169,7 +185,7 @@ const Map: React.FC<MapProps> = ({
   }
 
   // Add Trade Area polygons for active places using real Supabase data
-  if (activeTradeAreas.size > 0 && isTradeAreaSelected && tradeAreaData && filters?.tradeAreas) {
+  if (activeTradeAreas.size > 0 && analysisType === 'Trade Area' && tradeAreaData && filters?.tradeAreas) {
     console.log('🗺️ Map: Rendering trade areas for activeTradeAreas:', Array.from(activeTradeAreas));
     console.log('🗺️ Map: tradeAreaData:', tradeAreaData);
     console.log('🗺️ Map: filters.tradeAreas:', filters.tradeAreas);
@@ -397,7 +413,7 @@ const Map: React.FC<MapProps> = ({
     console.log('📍 Selected place ID:', selectedPlace?.id);
     
     if (selectedPlace) {
-      // PRD: Toggle zipcodes for this place (only one at a time)
+      // Toggle zipcodes for the selected place (mutually exclusive)
       if (zipcodePlaceId === selectedPlace.id) {
         console.log('🗑️ Hiding zipcodes for place:', selectedPlace.id);
         setZipcodePlaceId(null);
@@ -411,6 +427,7 @@ const Map: React.FC<MapProps> = ({
       console.log('❌ Missing selectedPlace');
     }
   };
+
 
   const handleMapClick = (info: { object?: Place }) => {
     // Only close popup when clicking on empty area (no object)
