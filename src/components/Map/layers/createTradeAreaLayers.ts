@@ -20,15 +20,18 @@ export const createTradeAreaLayer = (placeId: string, tradeArea: TradeAreaItem) 
 
   switch (tradeArea.percentage) {
     case 30:
-      fillColor = [255, 215, 0, 120];
+      // Lowest opacity for 30% (widest area)
+      fillColor = [255, 215, 0, 80];
       strokeColor = [255, 215, 0, 255];
       break;
     case 50:
+      // Medium opacity for 50%
       fillColor = [255, 165, 0, 120];
       strokeColor = [255, 165, 0, 255];
       break;
     case 70:
-      fillColor = [255, 0, 0, 120];
+      // Highest opacity for 70% (smallest area)
+      fillColor = [255, 0, 0, 180];
       strokeColor = [255, 0, 0, 255];
       break;
     default:
