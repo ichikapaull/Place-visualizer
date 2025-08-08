@@ -6,7 +6,7 @@ import CustomerAnalysis from './CustomerAnalysis';
 interface LeftSidebarProps {
   onFiltersChange?: (filters: {
     radius: number;
-    industry: string;
+    industry: string[];
     showLayer: boolean;
     tradeAreas: { [key: string]: boolean };
   }) => void;

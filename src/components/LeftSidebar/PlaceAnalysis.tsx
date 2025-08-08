@@ -70,7 +70,7 @@ const PlaceAnalysis: React.FC<PlaceAnalysisProps> = ({ onFiltersChange }) => {
   
   const handleClearAllFilters = () => {
     setRadius(0);
-    setIndustry('');
+    setIndustry([]);
     setShowLayer(true);
     handleClearAll();
   };
