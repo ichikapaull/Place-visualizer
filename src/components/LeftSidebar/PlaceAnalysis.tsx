@@ -21,12 +21,13 @@ import SettingsInputAntennaIcon from '@mui/icons-material/SettingsInputAntenna';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CloseIcon from '@mui/icons-material/Close';
 import { useIndustries } from '../../hooks/useApi';
+import { useAppStore } from '../../store/appStore';
 
 
 interface PlaceAnalysisProps {
   onFiltersChange?: (filters: {
     radius: number;
-    industry: string;
+    industry: string[];
     showLayer: boolean;
     tradeAreas: { [key: string]: boolean };
   }) => void;
@@ -35,7 +36,7 @@ interface PlaceAnalysisProps {
 const PlaceAnalysis: React.FC<PlaceAnalysisProps> = ({ onFiltersChange }) => {
   const [showLayer, setShowLayer] = useState(true);
   const [radius, setRadius] = useState<number>(0);
-  const [industry, setIndustry] = useState('');
+  const [industry, setIndustry] = useState<string[]>([]);
   const [tradeAreas, setTradeAreas] = useState({
     '30': true,
     '50': true,
@@ -43,6 +44,7 @@ const PlaceAnalysis: React.FC<PlaceAnalysisProps> = ({ onFiltersChange }) => {
   });
 
   const { data: industries, isLoading: industriesLoading } = useIndustries();
+  const { analysisType } = useAppStore();
 
   // Notify parent about filter changes
   React.useEffect(() => {
@@ -188,17 +190,23 @@ const PlaceAnalysis: React.FC<PlaceAnalysisProps> = ({ onFiltersChange }) => {
           <Box>
             <FormControl fullWidth>
               <Select
+                multiple
                 value={industry}
-                onChange={(e) => setIndustry(e.target.value)}
+                onChange={(e) => setIndustry(typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as string[]))}
                 displayEmpty
                 disabled={industriesLoading}
+                renderValue={(selected) => {
+                  const items = selected as string[];
+                  if (!items.length) return 'Select Industries';
+                  return items.join(', ');
+                }}
                 sx={{
                   backgroundColor: 'white',
                   borderRadius: 2,
                   '& .MuiSelect-select': {
                     fontSize: '16px',
                     py: 1.5,
-                    color: industry ? 'text.primary' : 'text.secondary'
+                    color: (industry && industry.length > 0) ? 'text.primary' : 'text.secondary'
                   },
                   '& fieldset': {
                     borderColor: '#e0e0e0',
@@ -229,7 +237,8 @@ const PlaceAnalysis: React.FC<PlaceAnalysisProps> = ({ onFiltersChange }) => {
           </Box>
         </Box>
 
-        {/* Trade Area Percentages */}
+        {/* Trade Area Percentages - visible only when analysis type is Trade Area */}
+        {analysisType === 'Trade Area' && (
         <Box>
           <Typography 
             variant="h6" 
@@ -354,6 +363,7 @@ const PlaceAnalysis: React.FC<PlaceAnalysisProps> = ({ onFiltersChange }) => {
             </Button>
           </Box>
         </Box>
+        )}
         
         <Divider />
 
