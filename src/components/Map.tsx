@@ -59,6 +59,12 @@ const Map: React.FC<MapProps> = ({
   
   // Home Zipcodes state and data (PRD: only one place at a time)
   const { zipcodePlaceId, showHomeZipcodes, setZipcodePlaceId, setShowHomeZipcodes, analysisType } = useAppStore();
+  // Ensure zipcode layer is hidden when analysis type is not Home Zipcodes
+  useEffect(() => {
+    if (analysisType !== 'Home Zipcodes' && showHomeZipcodes) {
+      setShowHomeZipcodes(false);
+    }
+  }, [analysisType]);
   const zipcodeTargetPlace = React.useMemo(() => {
     if (!zipcodePlaceId) return null;
     if (selectedPlace && selectedPlace.id === zipcodePlaceId) return selectedPlace;
@@ -239,7 +245,9 @@ const Map: React.FC<MapProps> = ({
     zipcodeDataLength: homeZipcodeData?.length
   });
   
+  const isHomeZipAnalysis = analysisType === 'Home Zipcodes';
   if (
+    isHomeZipAnalysis &&
     showHomeZipcodes &&
     zipcodePlaceId &&
     Array.isArray(homeZipcodeData) &&
@@ -312,7 +320,11 @@ const Map: React.FC<MapProps> = ({
       }))
     };
     
-    const zipcodesLayer = createZipcodeLayer(zipcodePlaceId, zipcodesGeoJson.features as unknown as ZipcodeFeature[]);
+    const zipcodesLayer = createZipcodeLayer(
+      zipcodePlaceId,
+      zipcodesGeoJson.features as unknown as ZipcodeFeature[],
+      /* enableInteraction */ true
+    );
     
     console.log(`✅ Map: Added home zipcodes layer for place ${zipcodePlaceId}`);
     layers.push(zipcodesLayer);
