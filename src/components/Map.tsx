@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import DeckGL from '@deck.gl/react';
 import ReactMapGL from 'react-map-gl';
-import { ScatterplotLayer, GeoJsonLayer } from '@deck.gl/layers';
+import { ScatterplotLayer } from '@deck.gl/layers';
 import { Box, CircularProgress, Alert } from '@mui/material';
 // d3-scale removed for PRD quintile coloring
-import * as turf from '@turf/turf';
+// import * as turf from '@turf/turf';
 import { createTradeAreaLayer } from './Map/layers/createTradeAreaLayers';
 import { createZipcodeLayer } from './Map/layers/createZipcodeLayer';
 import type { ZipcodeFeature } from './Map/layers/createZipcodeLayer';
@@ -35,7 +35,6 @@ interface MapProps {
 
 const Map: React.FC<MapProps> = ({ 
   filters, 
-  isTradeAreaSelected = false,
   activeTradeAreas = new Set(),
   onToggleTradeArea
 }) => {
@@ -67,7 +66,7 @@ const Map: React.FC<MapProps> = ({
     const comp = (competitors || []).find(p => p.id === zipcodePlaceId) || null;
     return comp;
   }, [zipcodePlaceId, selectedPlace, myPlace, competitors]);
-  const { data: homeZipcodeData, isLoading: zipcodesLoading } = useHomeZipcodeData(zipcodeTargetPlace);
+  const { data: homeZipcodeData } = useHomeZipcodeData(zipcodeTargetPlace);
   const { data: hasZipcodesData } = useHomeZipcodeAvailability(zipcodeTargetPlace);
   
 
@@ -117,19 +116,15 @@ const Map: React.FC<MapProps> = ({
     }
   }, [myPlace, initialViewSet, onViewStateChange]);
 
-  // PRD: If switching to Home Zipcodes while multiple Trade Areas are visible,
-  // only keep My Place's Home Zipcodes on screen
+  // PRD: When switching to Home Zipcodes, if there is no current selection, default to My Place
   useEffect(() => {
-    if (analysisType === 'Home Zipcodes' && activeTradeAreas.size > 0) {
+    if (analysisType === 'Home Zipcodes' && activeTradeAreas.size > 0 && !zipcodePlaceId) {
       if (myPlace?.id) {
         setZipcodePlaceId(myPlace.id);
         setShowHomeZipcodes(true);
-      } else {
-        setZipcodePlaceId(null);
-        setShowHomeZipcodes(false);
       }
     }
-  }, [analysisType, activeTradeAreas.size, myPlace?.id, setZipcodePlaceId, setShowHomeZipcodes]);
+  }, [analysisType, activeTradeAreas.size, myPlace?.id, zipcodePlaceId, setZipcodePlaceId, setShowHomeZipcodes]);
 
   // Create layers
   const layers = [];
@@ -244,7 +239,12 @@ const Map: React.FC<MapProps> = ({
     zipcodeDataLength: homeZipcodeData?.length
   });
   
-  if (showHomeZipcodes && zipcodePlaceId && homeZipcodeData && homeZipcodeData.length > 0) {
+  if (
+    showHomeZipcodes &&
+    zipcodePlaceId &&
+    Array.isArray(homeZipcodeData) &&
+    homeZipcodeData.length > 0
+  ) {
     console.log('🏠 Map: Rendering home zipcodes for place:', zipcodePlaceId);
     console.log('🏠 Map: Raw zipcode data count:', homeZipcodeData.length);
     
@@ -259,25 +259,7 @@ const Map: React.FC<MapProps> = ({
     
     const placeLng = Number(targetPlace.longitude);
     const placeLat = Number(targetPlace.latitude);
-    const placePoint = turf.point([placeLng, placeLat]);
-    
     console.log('🏠 Map: Target place coordinates:', [placeLng, placeLat]);
-    
-    // Filter zipcodes by distance (increased radius for better coverage)
-    // Narrow down to avoid overwhelming fill
-    const MAX_DISTANCE_KM = 50;
-    
-    // Test first few zipcodes to see their distances
-    console.log('🏠 Map: Testing distances for first 3 zipcodes:');
-    homeZipcodeData.slice(0, 3).forEach((zipcode, idx) => {
-      try {
-        const zipcodeCentroid = turf.centroid(zipcode.polygon);
-        const distance = turf.distance(placePoint, zipcodeCentroid, { units: 'kilometers' });
-        console.log(`  Zipcode ${idx + 1} (${zipcode.zipcode}): ${distance.toFixed(2)}km`);
-      } catch (error) {
-        console.log(`  Zipcode ${idx + 1} (${zipcode.zipcode}): ERROR -`, error);
-      }
-    });
     
     // Geometry sanity check to prevent world-covering artifacts
     const isGeometryValid = (geom: any): boolean => {
@@ -302,55 +284,18 @@ const Map: React.FC<MapProps> = ({
       return true;
     };
 
-    const filteredZipcodeData = homeZipcodeData.filter(zipcode => {
+    const filteredZipcodeData = (homeZipcodeData || []).filter(zipcode => {
       try {
-        if (!isGeometryValid(zipcode.polygon)) return false;
-        // Get centroid of zipcode polygon
-        const zipcodeCentroid = turf.centroid(zipcode.polygon);
-        const distance = turf.distance(placePoint, zipcodeCentroid, { units: 'kilometers' });
-        
-        return distance <= MAX_DISTANCE_KM;
+        return isGeometryValid(zipcode.polygon);
       } catch (error) {
-        console.warn('🏠 Map: Error calculating distance for zipcode:', zipcode.zipcode, error);
+        console.warn('🏠 Map: Error validating geometry for zipcode:', zipcode.zipcode, error);
         return false;
       }
     });
     
-    console.log('🏠 Map: Filtered zipcode data count:', filteredZipcodeData.length, `(within ${MAX_DISTANCE_KM}km)`);
+    console.log('🏠 Map: Filtered zipcode data count (valid geometry):', filteredZipcodeData.length);
     
-    if (filteredZipcodeData.length === 0) {
-      console.log('🏠 Map: No zipcodes found within radius, showing all zipcodes instead');
-      // Fallback: show all zipcodes if none found within radius
-      const validAll = homeZipcodeData.filter(z => isGeometryValid(z.polygon)).slice(0, 20);
-      const allZipcodesGeoJson = {
-        type: 'FeatureCollection' as const,
-        features: validAll.map(zipcode => ({
-          type: 'Feature' as const,
-          properties: {
-            id: zipcode.id,
-            zipcode: zipcode.zipcode,
-            customer_count: zipcode.customer_count,
-            quintile: zipcode.quintile
-          },
-          geometry: zipcode.polygon
-        }))
-      };
-      
-      const fallbackLayer = new GeoJsonLayer({
-        id: `home-zipcodes-fallback-${zipcodePlaceId}`,
-        data: allZipcodesGeoJson,
-        getFillColor: [0, 136, 204, 40], // very low opacity safety fallback
-        getLineColor: [255, 255, 255, 100],
-        getLineWidth: 1,
-        pickable: true,
-        stroked: true,
-        filled: true,
-        opacity: 0.3
-      });
-      
-      console.log(`✅ Map: Added fallback zipcodes layer (${validAll.length} zipcodes)`);
-      layers.push(fallbackLayer);
-    } else {
+    if (filteredZipcodeData.length > 0) {
     
     // Convert filtered data to GeoJSON format for GeoJsonLayer
     const zipcodesGeoJson = {
@@ -376,7 +321,7 @@ const Map: React.FC<MapProps> = ({
 }
 
   // Show loading state
-  if (competitorsLoading || myPlaceLoading || zipcodesLoading) {
+  if (competitorsLoading || myPlaceLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
         <CircularProgress />
