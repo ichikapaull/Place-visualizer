@@ -35,7 +35,7 @@ export interface CustomerZipcode {
 // Filter types
 export interface PlaceFilters {
   category?: string;
-  industry?: string; // Filter by sub_category
+  industry?: string | string[]; // Filter by sub_category (supports multi-select)
   bounds?: {
     north: number;
     south: number;
