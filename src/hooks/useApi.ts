@@ -53,7 +53,7 @@ export const useMyPlace = () => {
 
 export const useCompetitors = (filters?: {
   category?: string;
-  industry?: string;
+  industry?: string | string[];
   bounds?: {
     north: number;
     south: number;
