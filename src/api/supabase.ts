@@ -256,70 +256,94 @@ export const tradeAreasApi = {
 
 // Customer Zipcodes API (Global zipcode data - all places can access)
 export const homeZipcodesApi = {
-  async getHomeZipcodes(placeId: string, longitude?: number, latitude?: number): Promise<CustomerZipcode[]> {
-    console.log('🏠 API: Fetching customer zipcodes for placeId:', placeId, 'coords:', latitude, longitude);
-    
-    // If coordinates provided, prefer edge function for server-side filtering
-    if (longitude !== undefined && latitude !== undefined) {
-      try {
-        const edgeUrl = import.meta.env.VITE_ZIPCODES_EDGE_URL || `${supabaseUrl}/functions/v1/get-zipcodes-by-location`;
-        const response = await fetch(edgeUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseAnonKey}`,
-          },
-          body: JSON.stringify({ placeId, longitude, latitude }),
-        });
-        if (!response.ok) throw new Error(`Edge function error: ${response.statusText}`);
-        const data = await response.json();
-        return (data || []) as CustomerZipcode[];
-      } catch (err) {
-        console.warn('⚠️ Edge function failed, falling back to global query:', err);
+  async getHomeZipcodes(placeId: string): Promise<CustomerZipcode[]> {
+    console.log('🏠 API: Fetching place-specific home zipcodes for placeId:', placeId);
+
+    // Read home_zipcodes row for this place (pid)
+    const { data: homeRows, error: homeErr } = await supabase
+      .from('home_zipcodes')
+      .select('pid, locations')
+      .eq('pid', placeId)
+      .limit(1);
+
+    if (homeErr) {
+      console.error('❌ API: Failed to fetch home_zipcodes:', homeErr);
+      throw new Error(`Failed to fetch home_zipcodes: ${homeErr.message}`);
+    }
+
+    if (!homeRows || homeRows.length === 0) {
+      console.log('ℹ️ API: No home_zipcodes row for place in Supabase:', placeId);
+      return [];
+    }
+
+    const locations = homeRows[0].locations as unknown as Array<Record<string, string | number>>;
+    if (!Array.isArray(locations) || locations.length === 0) {
+      console.log('ℹ️ API: home_zipcodes.locations empty for place:', placeId);
+      return [];
+    }
+
+    const zipcodeToValue = new Map<string, number>();
+    for (const entry of locations) {
+      const [zip, val] = Object.entries(entry)[0] || [];
+      if (zip) {
+        const numVal = Number(val);
+        zipcodeToValue.set(zip, Number.isFinite(numVal) ? numVal : 0);
       }
     }
-    
-    // Fallback: Fetch global zipcode data from customer_zipcodes table
-    const { data, error } = await supabase
-      .from('customer_zipcodes')
-      .select('id, zipcode, customer_count, quintile, polygon, created_at')
-      .order('customer_count', { ascending: false });
+    const zipcodeCodes = Array.from(zipcodeToValue.keys());
+    if (zipcodeCodes.length === 0) return [];
 
-    if (error) {
-      console.error('❌ API: Failed to fetch customer zipcodes:', error);
-      throw new Error(`Failed to fetch customer zipcodes: ${error.message}`);
+    const { data: polys, error: polyErr } = await supabase
+      .from('customer_zipcodes')
+      .select('id, zipcode, polygon')
+      .in('zipcode', zipcodeCodes);
+
+    if (polyErr) {
+      console.error('❌ API: Failed to fetch zipcode polygons:', polyErr);
+      throw new Error(`Failed to fetch zipcode polygons: ${polyErr.message}`);
     }
 
-    console.log('✅ API: Raw customer zipcodes data:', data);
-
-    // Transform the data to match our interface
-    const transformedData = (data || []).map((item: {
+    const rows = (polys || []).filter(Boolean) as Array<{
       id: string;
       zipcode: string;
-      customer_count: number;
-      quintile: number;
       polygon: GeoJSON.Geometry;
-      created_at: string;
-    }) => ({
-      id: item.id,
-      zipcode: item.zipcode,
-      customer_count: item.customer_count,
-      quintile: item.quintile,
-      polygon: item.polygon, // Already in correct GeoJSON format
-      created_at: item.created_at
-    }));
+    }>;
 
-    console.log('📊 API: Transformed customer zipcodes:', transformedData);
+    const values = rows.map((r) => zipcodeToValue.get(r.zipcode) ?? 0);
+    const sorted = [...values].sort((a, b) => a - b);
+    const qIndex = (p: number) => Math.max(0, Math.min(sorted.length - 1, Math.floor((p / 100) * (sorted.length - 1))));
+    const thresholds = [sorted[qIndex(20)], sorted[qIndex(40)], sorted[qIndex(60)], sorted[qIndex(80)]];
+    const toQuintile = (v: number) => {
+      if (v <= thresholds[0]) return 1;
+      if (v <= thresholds[1]) return 2;
+      if (v <= thresholds[2]) return 3;
+      if (v <= thresholds[3]) return 4;
+      return 5;
+    };
+
+    const transformedData: CustomerZipcode[] = rows.map((r) => {
+      const val = zipcodeToValue.get(r.zipcode) ?? 0;
+      return {
+        id: r.id,
+        pid: placeId,
+        zipcode: r.zipcode,
+        customer_count: val,
+        quintile: toQuintile(val),
+        polygon: r.polygon,
+      };
+    });
+
+    console.log('📊 API: Built place-specific zipcodes:', transformedData.length);
     return transformedData;
   },
 
   async checkHomeZipcodesAvailability(placeId: string): Promise<boolean> {
-    console.log('🔍 API: Checking customer zipcodes availability (always true for global data) for place:', placeId);
+    console.log('🔍 API: Checking home_zipcodes availability for place:', placeId);
     
-    // Since it's global data, always check if table has any data
     const { data, error } = await supabase
-      .from('customer_zipcodes')
-      .select('id')
+      .from('home_zipcodes')
+      .select('pid')
+      .eq('pid', placeId)
       .limit(1);
 
     if (error) {
@@ -328,7 +352,7 @@ export const homeZipcodesApi = {
     }
 
     const hasData = data && data.length > 0;
-    console.log('✅ API: Customer zipcodes availability (global):', hasData);
+    console.log('✅ API: Customer zipcodes availability (supabase):', hasData);
     return hasData;
   },
 };
