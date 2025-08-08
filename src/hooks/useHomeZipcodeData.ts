@@ -8,13 +8,15 @@ export const useHomeZipcodeData = (place: Place | null) => {
     queryFn: async () => {
       if (!place) return [];
       const placeId = place.id;
-      const longitude = Number(place.longitude);
-      const latitude = Number(place.latitude);
-      
-      console.log('🏠 Hook: Fetching home zipcodes for placeId:', placeId, 'at', latitude, longitude);
+      console.log('🏠 Hook: Fetching home zipcodes for placeId:', placeId);
       
       try {
-        const zipcodes = await api.homeZipcodes.getHomeZipcodes(placeId, longitude, latitude);
+        const zipcodes = await api.homeZipcodes.getHomeZipcodes(placeId);
+        // Filter strictly by pid (place identifier)
+        const strict = (zipcodes || []).filter((z) => (z as any).pid === placeId);
+        if (strict.length > 0) return strict;
+        // If none strictly match pid, return empty to signal no place-specific data
+        return [];
         console.log('✅ Hook: Got home zipcodes for', placeId, ':', zipcodes);
         return zipcodes;
       } catch (error) {

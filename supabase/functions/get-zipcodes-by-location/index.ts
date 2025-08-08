@@ -29,7 +29,7 @@ serve(async (req) => {
   // First try: direct relation via place_id if present
   const byPlace = await supabase
     .from('customer_zipcodes')
-    .select('id, zipcode, customer_count, quintile, polygon, created_at')
+    .select('id, pid, zipcode, customer_count, quintile, polygon, created_at')
     .eq('place_id', placeId)
     .order('customer_count', { ascending: false })
     .limit(200)

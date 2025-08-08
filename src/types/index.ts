@@ -25,6 +25,7 @@ export interface TradeArea {
 
 export interface CustomerZipcode {
   id: string;
+  pid?: string; // place identifier for home_zipcodes/customer_zipcodes
   zipcode: string;
   customer_count: number;
   quintile: number;

@@ -16,11 +16,11 @@ export interface ZipcodeFeature {
 export const createZipcodeLayer = (placeId: string, features: ZipcodeFeature[]) => {
   // Blue palette to avoid "whitewash" effect
   const quintileColors: [number, number, number, number][] = [
-    [198, 219, 239, 70],  // light blue
-    [158, 202, 225, 85],
-    [107, 174, 214, 100],
-    [49, 130, 189, 120],
-    [8, 81, 156, 140],
+    [198, 219, 239, 140],  // light blue
+    [158, 202, 225, 170],
+    [107, 174, 214, 190],
+    [49, 130, 189, 210],
+    [8, 81, 156, 230],
   ];
 
   return new GeoJsonLayer({
@@ -34,14 +34,16 @@ export const createZipcodeLayer = (placeId: string, features: ZipcodeFeature[]) 
       const colorIndex = Math.min(Math.max(quintile - 1, 0), 4);
       return quintileColors[colorIndex];
     },
-    getLineColor: [255, 255, 255, 120],
-    getLineWidth: 0.7,
+    // Improve readability and interaction
+    getLineColor: [8, 81, 156, 200],
+    getLineWidth: 1,
     lineWidthMinPixels: 1,
     lineWidthMaxPixels: 2,
     pickable: true,
+    autoHighlight: true,
+    highlightColor: [255, 255, 0, 200],
     stroked: true,
     filled: true,
-    opacity: 0.25,
     updateTriggers: {
       getFillColor: [features.length],
     },
