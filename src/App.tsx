@@ -36,12 +36,12 @@ function AppContent() {
   const [activeTradeAreas, setActiveTradeAreas] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<{
     radius: number;
-    industry: string;
+    industry: string[];
     showLayer: boolean;
     tradeAreas: { [key: string]: boolean };
   }>({
     radius: 0,
-    industry: '',
+    industry: [],
     showLayer: true,
     tradeAreas: { '30': true, '50': true, '70': true },
   });
@@ -56,7 +56,7 @@ function AppContent() {
 
   const handleFiltersChange = (newFilters: {
     radius: number;
-    industry: string;
+    industry: string[];
     showLayer: boolean;
     tradeAreas: { [key: string]: boolean };
   }) => {
