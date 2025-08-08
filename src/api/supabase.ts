@@ -258,101 +258,202 @@ export const tradeAreasApi = {
 export const homeZipcodesApi = {
   async getHomeZipcodes(placeId: string): Promise<CustomerZipcode[]> {
     console.log('🏠 API: Fetching place-specific home zipcodes for placeId:', placeId);
+    // Preferred path: use DB view that returns normalized GeoJSON polygons per place
+    // v_home_zipcodes_polygons schema: pid, id, zipcode, customer_count, polygon(jsonb geojson)
+    try {
+      const { data: viewRows, error: viewErr } = await supabase
+        .from('v_home_zipcodes_polygons')
+        .select('id, zipcode, customer_count, polygon')
+        .eq('pid', placeId);
 
-    // Read home_zipcodes row for this place (pid)
-    const { data: homeRows, error: homeErr } = await supabase
-      .from('home_zipcodes')
-      .select('pid, locations')
-      .eq('pid', placeId)
-      .limit(1);
-
-    if (homeErr) {
-      console.error('❌ API: Failed to fetch home_zipcodes:', homeErr);
-      throw new Error(`Failed to fetch home_zipcodes: ${homeErr.message}`);
-    }
-
-    if (!homeRows || homeRows.length === 0) {
-      console.log('ℹ️ API: No home_zipcodes row for place in Supabase:', placeId);
-      return [];
-    }
-
-    const locations = homeRows[0].locations as unknown as Array<Record<string, string | number>>;
-    if (!Array.isArray(locations) || locations.length === 0) {
-      console.log('ℹ️ API: home_zipcodes.locations empty for place:', placeId);
-      return [];
-    }
-
-    const zipcodeToValue = new Map<string, number>();
-    for (const entry of locations) {
-      const [zip, val] = Object.entries(entry)[0] || [];
-      if (zip) {
-        const numVal = Number(val);
-        zipcodeToValue.set(zip, Number.isFinite(numVal) ? numVal : 0);
+      if (viewErr) {
+        console.warn('⚠️ API: v_home_zipcodes_polygons not available or errored, falling back:', viewErr.message);
       }
+
+      if (Array.isArray(viewRows) && viewRows.length > 0) {
+        const values = viewRows.map((r: any) => Number(r.customer_count) || 0);
+        const sorted = [...values].sort((a, b) => a - b);
+        const qIndex = (p: number) => Math.max(0, Math.min(sorted.length - 1, Math.floor((p / 100) * (sorted.length - 1))));
+        const thresholds = [sorted[qIndex(20)], sorted[qIndex(40)], sorted[qIndex(60)], sorted[qIndex(80)]];
+        const toQuintile = (v: number) => {
+          if (!sorted.length) return 1;
+          if (v <= thresholds[0]) return 1;
+          if (v <= thresholds[1]) return 2;
+          if (v <= thresholds[2]) return 3;
+          if (v <= thresholds[3]) return 4;
+          return 5;
+        };
+
+        const sanitized: CustomerZipcode[] = viewRows
+          .filter(Boolean)
+          .map((r: any) => {
+            const geometry = typeof r.polygon === 'string' ? JSON.parse(r.polygon) : r.polygon;
+            return {
+              id: String(r.id),
+              pid: placeId,
+              zipcode: String(r.zipcode),
+              customer_count: Number(r.customer_count) || 0,
+              quintile: toQuintile(Number(r.customer_count) || 0),
+              polygon: geometry as GeoJSON.Geometry,
+            };
+          });
+
+        console.log('📊 API: Built place-specific zipcodes from view:', sanitized.length);
+        return sanitized;
+      }
+    } catch (e) {
+      console.warn('⚠️ API: Failed to use v_home_zipcodes_polygons, will try legacy path:', e);
     }
-    const zipcodeCodes = Array.from(zipcodeToValue.keys());
-    if (zipcodeCodes.length === 0) return [];
 
-    const { data: polys, error: polyErr } = await supabase
-      .from('customer_zipcodes')
-      .select('id, zipcode, polygon')
-      .in('zipcode', zipcodeCodes);
+    // Helper to build quintiles
+    const buildWithPolygons = async (zipcodeToValue: Map<string, number>): Promise<CustomerZipcode[]> => {
+      const zipcodeCodes = Array.from(zipcodeToValue.keys());
+      if (zipcodeCodes.length === 0) return [];
 
-    if (polyErr) {
-      console.error('❌ API: Failed to fetch zipcode polygons:', polyErr);
-      throw new Error(`Failed to fetch zipcode polygons: ${polyErr.message}`);
-    }
+      const { data: polys, error: polyErr } = await supabase
+        .from('customer_zipcodes')
+        .select('id, zipcode, polygon')
+        .in('zipcode', zipcodeCodes);
 
-    const rows = (polys || []).filter(Boolean) as Array<{
-      id: string;
-      zipcode: string;
-      polygon: GeoJSON.Geometry;
-    }>;
+      if (polyErr) {
+        console.error('❌ API: Failed to fetch zipcode polygons:', polyErr);
+        throw new Error(`Failed to fetch zipcode polygons: ${polyErr.message}`);
+      }
 
-    const values = rows.map((r) => zipcodeToValue.get(r.zipcode) ?? 0);
-    const sorted = [...values].sort((a, b) => a - b);
-    const qIndex = (p: number) => Math.max(0, Math.min(sorted.length - 1, Math.floor((p / 100) * (sorted.length - 1))));
-    const thresholds = [sorted[qIndex(20)], sorted[qIndex(40)], sorted[qIndex(60)], sorted[qIndex(80)]];
-    const toQuintile = (v: number) => {
-      if (v <= thresholds[0]) return 1;
-      if (v <= thresholds[1]) return 2;
-      if (v <= thresholds[2]) return 3;
-      if (v <= thresholds[3]) return 4;
-      return 5;
+      const rows = (polys || []).filter(Boolean) as Array<{
+        id: string;
+        zipcode: string;
+        polygon: unknown;
+      }>;
+
+      const values = rows.map((r) => zipcodeToValue.get(r.zipcode) ?? 0);
+      const sorted = [...values].sort((a, b) => a - b);
+      const qIndex = (p: number) => Math.max(0, Math.min(sorted.length - 1, Math.floor((p / 100) * (sorted.length - 1))));
+      const thresholds = [sorted[qIndex(20)], sorted[qIndex(40)], sorted[qIndex(60)], sorted[qIndex(80)]];
+      const toQuintile = (v: number) => {
+        if (!sorted.length) return 1;
+        if (v <= thresholds[0]) return 1;
+        if (v <= thresholds[1]) return 2;
+        if (v <= thresholds[2]) return 3;
+        if (v <= thresholds[3]) return 4;
+        return 5;
+      };
+
+      const transformedData: CustomerZipcode[] = rows.map((r) => {
+        const val = zipcodeToValue.get(r.zipcode) ?? 0;
+        const geometry = typeof r.polygon === 'string' ? JSON.parse(r.polygon as string) : (r.polygon as GeoJSON.Geometry);
+        return {
+          id: r.id,
+          pid: placeId,
+          zipcode: r.zipcode,
+          customer_count: val,
+          quintile: toQuintile(val),
+          polygon: geometry,
+        };
+      });
+
+      return transformedData;
     };
 
-    const transformedData: CustomerZipcode[] = rows.map((r) => {
-      const val = zipcodeToValue.get(r.zipcode) ?? 0;
-      return {
-        id: r.id,
-        pid: placeId,
-        zipcode: r.zipcode,
-        customer_count: val,
-        quintile: toQuintile(val),
-        polygon: r.polygon,
-      };
-    });
+    // Legacy fallback: home_zipcodes.locations → join customer_zipcodes by zipcode
+    let zipcodeToValue = new Map<string, number>();
+    try {
+      const { data: homeRows } = await supabase
+        .from('home_zipcodes')
+        .select('pid, locations')
+        .eq('pid', placeId)
+        .limit(1);
 
-    console.log('📊 API: Built place-specific zipcodes:', transformedData.length);
+      if (Array.isArray(homeRows) && homeRows.length > 0) {
+        const locations = homeRows[0].locations as unknown as Array<Record<string, string | number>>;
+        if (Array.isArray(locations) && locations.length > 0) {
+          for (const entry of locations) {
+            const [zip, val] = Object.entries(entry)[0] || [];
+            if (!zip) continue;
+            const numVal = Number(val);
+            zipcodeToValue.set(String(zip), Number.isFinite(numVal) ? numVal : 0);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ API: Failed legacy home_zipcodes.locations path, will try public JSON fallback:', e);
+    }
+
+    // If DB legacy produced no counts, try public JSON fallback without changing datasets
+    if (zipcodeToValue.size === 0) {
+      try {
+        const res = await fetch('/home_zipcodes.json');
+        if (res.ok) {
+          const json = (await res.json()) as Array<{ pid: string; locations: Array<Record<string, string | number>> }>;
+          const record = (json || []).find((r) => r.pid === placeId);
+          if (record && Array.isArray(record.locations)) {
+            for (const entry of record.locations) {
+              const [zip, val] = Object.entries(entry)[0] || [];
+              if (!zip) continue;
+              const numVal = Number(val);
+              zipcodeToValue.set(String(zip), Number.isFinite(numVal) ? numVal : 0);
+            }
+          }
+        } else {
+          console.warn('⚠️ API: Failed to fetch public /home_zipcodes.json, status:', res.status);
+        }
+      } catch (e) {
+        console.warn('⚠️ API: Error loading public /home_zipcodes.json:', e);
+      }
+    }
+
+    if (zipcodeToValue.size === 0) {
+      console.log('ℹ️ API: No zipcode counts found for place (DB/view/public all empty):', placeId);
+      return [];
+    }
+
+    const transformedData = await buildWithPolygons(zipcodeToValue);
+    console.log('📊 API: Built place-specific zipcodes (legacy/public path):', transformedData.length);
     return transformedData;
   },
 
   async checkHomeZipcodesAvailability(placeId: string): Promise<boolean> {
     console.log('🔍 API: Checking home_zipcodes availability for place:', placeId);
-    
-    const { data, error } = await supabase
-      .from('home_zipcodes')
-      .select('pid')
-      .eq('pid', placeId)
-      .limit(1);
+    // Prefer view-based availability to reflect actual renderable dataset
+    try {
+      const { data: viewRows, error: viewErr } = await supabase
+        .from('v_home_zipcodes_polygons')
+        .select('id')
+        .eq('pid', placeId)
+        .limit(1);
+      if (!viewErr && Array.isArray(viewRows)) {
+        const has = viewRows.length > 0;
+        console.log('✅ API: Availability via view:', has);
+        if (has) return true;
+      }
+    } catch {}
 
-    if (error) {
-      console.error('❌ API: Failed to check customer zipcodes availability:', error);
-      return false;
+    // Fallback 1: existence of home_zipcodes row
+    try {
+      const { data } = await supabase
+        .from('home_zipcodes')
+        .select('pid')
+        .eq('pid', placeId)
+        .limit(1);
+      if (Array.isArray(data) && data.length > 0) {
+        console.log('✅ API: Customer zipcodes availability (home_zipcodes row): true');
+        return true;
+      }
+    } catch (e) {
+      console.warn('⚠️ API: Error checking home_zipcodes row:', e);
     }
 
-    const hasData = data && data.length > 0;
-    console.log('✅ API: Customer zipcodes availability (supabase):', hasData);
-    return hasData;
+    // Fallback 2: presence in public JSON
+    try {
+      const res = await fetch('/home_zipcodes.json');
+      if (res.ok) {
+        const json = (await res.json()) as Array<{ pid: string }>;
+        const has = Array.isArray(json) && json.some((r) => r.pid === placeId);
+        console.log('✅ API: Customer zipcodes availability (public JSON):', has);
+        return has;
+      }
+    } catch {}
+
+    return false;
   },
 };
