@@ -65,9 +65,15 @@ export const placesApi = {
       .from('competitors')
       .select('*');
 
-    // Apply industry filter
+    // Apply industry filter (supports single value or array)
     if (filters?.industry) {
-      query = query.eq('sub_category', filters.industry);
+      if (Array.isArray(filters.industry)) {
+        if (filters.industry.length > 0) {
+          query = query.in('sub_category', filters.industry);
+        }
+      } else {
+        query = query.eq('sub_category', filters.industry);
+      }
     }
 
     const { data, error } = await query;
